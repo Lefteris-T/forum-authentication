@@ -1,19 +1,32 @@
 package main
 
 import (
+	"context"
 	"fmt"
-	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+
+	"forum/internal/app"
+	"forum/internal/config"
 )
 
 func main() {
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintln(w, "Forum is running")
-	})
-
-	fmt.Println("Server running on http://localhost:8080")
-
-	err := http.ListenAndServe(":8080", nil)
+	cfg, err := config.Load()
 	if err != nil {
-		fmt.Println("server error:", err)
+		fmt.Fprintln(os.Stderr, "config error:", err)
+		os.Exit(1)
+	}
+
+	ctx, stop := signal.NotifyContext(
+		context.Background(),
+		os.Interrupt,
+		syscall.SIGTERM,
+	)
+	defer stop()
+
+	if err := app.Run(ctx, cfg); err != nil {
+		fmt.Fprintln(os.Stderr, "server error:", err)
+		os.Exit(1)
 	}
 }
