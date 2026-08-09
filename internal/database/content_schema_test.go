@@ -128,7 +128,7 @@ func TestContentSchemaConstraints(t *testing.T) {
 	categoryResult, err := db.Exec(`
 		INSERT INTO categories (name)
 		VALUES (?)
-	`, "Go")
+	`, "Testing")
 	if err != nil {
 		t.Fatalf("insert category: %v", err)
 	}
