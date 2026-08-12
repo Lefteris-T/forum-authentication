@@ -10,8 +10,27 @@ import (
 	"testing"
 
 	"forum/internal/repository"
+	"forum/internal/validation"
 	"forum/internal/web/view"
 )
+
+type fakeRegistrationService struct {
+	called bool
+
+	input validation.RegistrationInput
+
+	id  int64
+	err error
+}
+
+func (f *fakeRegistrationService) Register(
+	input validation.RegistrationInput,
+) (int64, error) {
+	f.called = true
+	f.input = input
+
+	return f.id, f.err
+}
 
 func TestRegisterGET(t *testing.T) {
 	dir := t.TempDir()
