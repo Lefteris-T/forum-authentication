@@ -19,6 +19,11 @@ type RegistrationInput struct {
 	Password string
 }
 
+type LoginInput struct {
+	Email    string
+	Password string
+}
+
 func ValidateRegistration(input RegistrationInput) (RegistrationInput, error) {
 	email := strings.ToLower(strings.TrimSpace(input.Email))
 	username := strings.TrimSpace(input.Username)
@@ -70,6 +75,37 @@ func ValidateRegistration(input RegistrationInput) (RegistrationInput, error) {
 	return RegistrationInput{
 		Email:    email,
 		Username: username,
+		Password: input.Password,
+	}, nil
+}
+func ValidateLogin(input LoginInput) (LoginInput, error) {
+	email := strings.ToLower(strings.TrimSpace(input.Email))
+
+	if email == "" {
+		return LoginInput{}, fmt.Errorf("email is required")
+	}
+
+	if len(email) > 254 {
+		return LoginInput{}, fmt.Errorf("email is too long")
+	}
+
+	if _, err := mail.ParseAddress(email); err != nil {
+		return LoginInput{}, fmt.Errorf("invalid email")
+	}
+
+	if input.Password == "" {
+		return LoginInput{}, fmt.Errorf("password is required")
+	}
+
+	if len(input.Password) > maxPasswordLength {
+		return LoginInput{}, fmt.Errorf(
+			"password must be at most %d characters",
+			maxPasswordLength,
+		)
+	}
+
+	return LoginInput{
+		Email:    email,
 		Password: input.Password,
 	}, nil
 }
