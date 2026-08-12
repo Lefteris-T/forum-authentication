@@ -1,0 +1,168 @@
+package repository
+
+import (
+	"path/filepath"
+	"testing"
+
+	"forum/internal/database"
+)
+
+func TestUserRepositoryCreateAndFindByEmail(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "forum.db")
+
+	db, err := database.Open(dbPath)
+	if err != nil {
+		t.Fatalf("database.Open() error: %v", err)
+	}
+	defer db.Close()
+
+	if err := database.Migrate(db, "../../migrations"); err != nil {
+		t.Fatalf("database.Migrate() error: %v", err)
+	}
+
+	repo := NewUserRepository(db)
+
+	id, err := repo.Create(
+		"lefteris@example.com",
+		"lefteris",
+		"bcrypt-hash",
+	)
+	if err != nil {
+		t.Fatalf("Create() error: %v", err)
+	}
+
+	user, err := repo.ByEmail("lefteris@example.com")
+	if err != nil {
+		t.Fatalf("ByEmail() error: %v", err)
+	}
+
+	if user.ID != id {
+		t.Errorf("user.ID = %d, want %d", user.ID, id)
+	}
+
+	if user.Email != "lefteris@example.com" {
+		t.Errorf(
+			"user.Email = %q, want %q",
+			user.Email,
+			"lefteris@example.com",
+		)
+	}
+
+	if user.Username != "lefteris" {
+		t.Errorf(
+			"user.Username = %q, want %q",
+			user.Username,
+			"lefteris",
+		)
+	}
+
+	if user.PasswordHash != "bcrypt-hash" {
+		t.Errorf(
+			"user.PasswordHash = %q, want %q",
+			user.PasswordHash,
+			"bcrypt-hash",
+		)
+	}
+}
+
+func TestUserRepositoryFindByID(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "forum.db")
+
+	db, err := database.Open(dbPath)
+	if err != nil {
+		t.Fatalf("database.Open() error: %v", err)
+	}
+	defer db.Close()
+
+	if err := database.Migrate(db, "../../migrations"); err != nil {
+		t.Fatalf("database.Migrate() error: %v", err)
+	}
+
+	repo := NewUserRepository(db)
+
+	id, err := repo.Create(
+		"lefteris@example.com",
+		"lefteris",
+		"bcrypt-hash",
+	)
+	if err != nil {
+		t.Fatalf("Create() error: %v", err)
+	}
+
+	user, err := repo.ByID(id)
+	if err != nil {
+		t.Fatalf("ByID() error: %v", err)
+	}
+
+	if user.ID != id {
+		t.Errorf("user.ID = %d, want %d", user.ID, id)
+	}
+}
+func TestUserRepositoryReturnsNotFound(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "forum.db")
+
+	db, err := database.Open(dbPath)
+	if err != nil {
+		t.Fatalf("database.Open() error: %v", err)
+	}
+	defer db.Close()
+
+	if err := database.Migrate(db, "../../migrations"); err != nil {
+		t.Fatalf("database.Migrate() error: %v", err)
+	}
+
+	repo := NewUserRepository(db)
+
+	_, err = repo.ByEmail("missing@example.com")
+	if err != ErrUserNotFound {
+		t.Fatalf("ByEmail() error = %v, want ErrUserNotFound", err)
+	}
+
+	_, err = repo.ByID(9999)
+	if err != ErrUserNotFound {
+		t.Fatalf("ByID() error = %v, want ErrUserNotFound", err)
+	}
+}
+
+func TestUserRepositoryReturnsConflictErrors(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "forum.db")
+
+	db, err := database.Open(dbPath)
+	if err != nil {
+		t.Fatalf("database.Open() error: %v", err)
+	}
+	defer db.Close()
+
+	if err := database.Migrate(db, "../../migrations"); err != nil {
+		t.Fatalf("database.Migrate() error: %v", err)
+	}
+
+	repo := NewUserRepository(db)
+
+	_, err = repo.Create(
+		"lefteris@example.com",
+		"lefteris",
+		"bcrypt-hash",
+	)
+	if err != nil {
+		t.Fatalf("first Create() error: %v", err)
+	}
+
+	_, err = repo.Create(
+		"lefteris@example.com",
+		"another-user",
+		"bcrypt-hash",
+	)
+	if err != ErrEmailExists {
+		t.Fatalf("duplicate email error = %v, want ErrEmailExists", err)
+	}
+
+	_, err = repo.Create(
+		"another@example.com",
+		"lefteris",
+		"bcrypt-hash",
+	)
+	if err != ErrUsernameExists {
+		t.Fatalf("duplicate username error = %v, want ErrUsernameExists", err)
+	}
+}
