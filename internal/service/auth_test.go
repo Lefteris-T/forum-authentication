@@ -1,8 +1,11 @@
 package service
 
 import (
+	"errors"
 	"testing"
+	"time"
 
+	"forum/internal/model"
 	"forum/internal/repository"
 	"forum/internal/validation"
 )
@@ -178,5 +181,290 @@ func TestRegisterPreservesDuplicateErrors(t *testing.T) {
 				)
 			}
 		})
+	}
+}
+
+type fakeUserFinder struct {
+	user model.User
+	err  error
+
+	called bool
+	email  string
+}
+
+func (f *fakeUserFinder) ByEmail(email string) (model.User, error) {
+	f.called = true
+	f.email = email
+
+	return f.user, f.err
+}
+
+type fakePasswordComparer struct {
+	called bool
+
+	hash     string
+	password string
+
+	err error
+}
+
+func (f *fakePasswordComparer) Compare(
+	hash string,
+	password string,
+) error {
+	f.called = true
+	f.hash = hash
+	f.password = password
+
+	return f.err
+}
+func TestLoginWithCorrectCredentials(t *testing.T) {
+	users := &fakeUserFinder{
+		user: model.User{
+			ID:           42,
+			Email:        "lefteris@example.com",
+			PasswordHash: "stored-hash",
+		},
+	}
+
+	passwords := &fakePasswordComparer{}
+
+	auth := NewLoginService(
+		users,
+		passwords,
+		nil,
+		24*time.Hour,
+	)
+
+	user, err := auth.Login(validation.LoginInput{
+		Email:    "  Lefteris@Example.COM  ",
+		Password: "strong-password-123",
+	})
+	if err != nil {
+		t.Fatalf("Login() error: %v", err)
+	}
+
+	if user.ID != 42 {
+		t.Fatalf("user.ID = %d, want 42", user.ID)
+	}
+
+	if !users.called {
+		t.Fatal("ByEmail() was not called")
+	}
+
+	if users.email != "lefteris@example.com" {
+		t.Fatalf(
+			"ByEmail() email = %q, want normalized email",
+			users.email,
+		)
+	}
+
+	if !passwords.called {
+		t.Fatal("Compare() was not called")
+	}
+
+	if passwords.hash != "stored-hash" {
+		t.Fatalf(
+			"Compare() hash = %q, want stored-hash",
+			passwords.hash,
+		)
+	}
+
+	if passwords.password != "strong-password-123" {
+		t.Fatal("Compare() received wrong password")
+	}
+}
+func TestLoginInvalidCredentialsAreIndistinguishable(t *testing.T) {
+	tests := []struct {
+		name       string
+		user       model.User
+		userErr    error
+		compareErr error
+	}{
+		{
+			name:    "unknown email",
+			userErr: repository.ErrUserNotFound,
+		},
+		{
+			name: "wrong password",
+			user: model.User{
+				ID:           42,
+				Email:        "lefteris@example.com",
+				PasswordHash: "stored-hash",
+			},
+			compareErr: errors.New("password mismatch"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			users := &fakeUserFinder{
+				user: tt.user,
+				err:  tt.userErr,
+			}
+
+			passwords := &fakePasswordComparer{
+				err: tt.compareErr,
+			}
+
+			auth := NewLoginService(
+				users,
+				passwords,
+				nil,
+				24*time.Hour,
+			)
+
+			_, err := auth.Login(validation.LoginInput{
+				Email:    "lefteris@example.com",
+				Password: "wrong-password",
+			})
+
+			if !errors.Is(err, ErrInvalidCredentials) {
+				t.Fatalf(
+					"Login() error = %v, want ErrInvalidCredentials",
+					err,
+				)
+			}
+
+			if !passwords.called {
+				t.Fatal("Compare() was not called")
+			}
+		})
+	}
+}
+func TestLoginInvalidInputStopsEarly(t *testing.T) {
+	users := &fakeUserFinder{}
+
+	passwords := &fakePasswordComparer{}
+
+	auth:=NewLoginService(
+		users,
+		passwords,
+		nil,
+		24*time.Hour,
+	)
+
+	_, err := auth.Login(validation.LoginInput{
+		Email:    "not-an-email",
+		Password: "strong-password-123",
+	})
+
+	if err == nil {
+		t.Fatal("Login() error = nil, want validation error")
+	}
+
+	if users.called {
+		t.Fatal("ByEmail() was called for invalid input")
+	}
+
+	if passwords.called {
+		t.Fatal("Compare() was called for invalid input")
+	}
+}
+
+type fakeSessionStore struct {
+	replaceCalled bool
+	deleteCalled  bool
+
+	id        string
+	userID    int64
+	expiresAt time.Time
+
+	deleteID string
+
+	err error
+}
+
+func (f *fakeSessionStore) Replace(
+	id string,
+	userID int64,
+	expiresAt time.Time,
+) error {
+	f.replaceCalled = true
+	f.id = id
+	f.userID = userID
+	f.expiresAt = expiresAt
+
+	return f.err
+}
+
+func (f *fakeSessionStore) Delete(id string) error {
+	f.deleteCalled = true
+	f.deleteID = id
+
+	return f.err
+}
+func TestLoginCreatesSession(t *testing.T) {
+	users := &fakeUserFinder{
+		user: model.User{
+			ID:           42,
+			Email:        "lefteris@example.com",
+			PasswordHash: "stored-hash",
+		},
+	}
+
+	passwords := &fakePasswordComparer{}
+
+	sessions := &fakeSessionStore{}
+
+	auth := NewLoginService(
+		users,
+		passwords,
+		sessions,
+		24*time.Hour,
+	)
+
+	err := auth.CreateSession(
+		"session-123",
+		42,
+	)
+	if err != nil {
+		t.Fatalf("CreateSession() error: %v", err)
+	}
+
+	if !sessions.replaceCalled {
+		t.Fatal("session Replace() was not called")
+	}
+
+	if sessions.id != "session-123" {
+		t.Fatalf(
+			"session id = %q, want %q",
+			sessions.id,
+			"session-123",
+		)
+	}
+
+	if sessions.userID != 42 {
+		t.Fatalf(
+			"userID = %d, want 42",
+			sessions.userID,
+		)
+	}
+}
+func TestLogoutDeletesSession(t *testing.T) {
+	sessions := &fakeSessionStore{}
+
+	auth := NewLoginService(
+		nil,
+		nil,
+		sessions,
+		24*time.Hour,
+	)
+
+	err := auth.Logout("session-123")
+	if err != nil {
+		t.Fatalf("Logout() error: %v", err)
+	}
+
+	if !sessions.deleteCalled {
+		t.Fatal("session Delete() was not called")
+	}
+
+	if sessions.deleteID != "session-123" {
+		t.Fatalf(
+			"deleted session id = %q, want %q",
+			sessions.deleteID,
+			"session-123",
+		)
 	}
 }
