@@ -1,0 +1,198 @@
+package handler
+
+import (
+	"errors"
+	"net/http"
+	"strconv"
+	"strings"
+
+	"forum/internal/model"
+	"forum/internal/repository"
+	"forum/internal/web/middleware"
+	"forum/internal/web/view"
+)
+
+type PostReader interface {
+	List() ([]repository.PostListItem, error)
+	Detail(id int64) (repository.PostDetail, error)
+}
+
+type HomeHandler struct {
+	posts    PostReader
+	renderer *view.Renderer
+}
+
+type homePageData struct {
+	Posts       []repository.PostListItem
+	CurrentUser *model.User
+}
+
+func NewHomeHandler(
+	posts PostReader,
+	renderer *view.Renderer,
+) *HomeHandler {
+	return &HomeHandler{
+		posts:    posts,
+		renderer: renderer,
+	}
+}
+
+func (h *HomeHandler) ServeHTTP(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
+	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", "GET")
+
+		http.Error(
+			w,
+			http.StatusText(http.StatusMethodNotAllowed),
+			http.StatusMethodNotAllowed,
+		)
+		return
+	}
+
+	posts, err := h.posts.List()
+	if err != nil {
+		http.Error(
+			w,
+			http.StatusText(http.StatusInternalServerError),
+			http.StatusInternalServerError,
+		)
+		return
+	}
+
+	data := homePageData{
+		Posts: posts,
+	}
+
+	if user, ok := middleware.CurrentUser(r.Context()); ok {
+		data.CurrentUser = &user
+	}
+
+	if err := h.renderer.Render(
+		w,
+		http.StatusOK,
+		"home.html",
+		data,
+	); err != nil {
+		http.Error(
+			w,
+			http.StatusText(http.StatusInternalServerError),
+			http.StatusInternalServerError,
+		)
+	}
+}
+
+type PostDetailHandler struct {
+	posts    PostReader
+	renderer *view.Renderer
+}
+
+type postDetailPageData struct {
+	Post        repository.PostDetail
+	CurrentUser *model.User
+}
+
+func NewPostDetailHandler(
+	posts PostReader,
+	renderer *view.Renderer,
+) *PostDetailHandler {
+	return &PostDetailHandler{
+		posts:    posts,
+		renderer: renderer,
+	}
+}
+
+func (h *PostDetailHandler) ServeHTTP(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
+	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", "GET")
+
+		http.Error(
+			w,
+			http.StatusText(http.StatusMethodNotAllowed),
+			http.StatusMethodNotAllowed,
+		)
+		return
+	}
+
+	id, err := parsePostID(r.URL.Path)
+	if err != nil {
+		http.Error(
+			w,
+			http.StatusText(http.StatusBadRequest),
+			http.StatusBadRequest,
+		)
+		return
+	}
+
+	post, err := h.posts.Detail(id)
+	if errors.Is(err, repository.ErrPostNotFound) {
+		http.Error(
+			w,
+			http.StatusText(http.StatusNotFound),
+			http.StatusNotFound,
+		)
+		return
+	}
+	if err != nil {
+		http.Error(
+			w,
+			http.StatusText(http.StatusInternalServerError),
+			http.StatusInternalServerError,
+		)
+		return
+	}
+
+	data := postDetailPageData{
+		Post: post,
+	}
+
+	if user, ok := middleware.CurrentUser(r.Context()); ok {
+		data.CurrentUser = &user
+	}
+
+	if err := h.renderer.Render(
+		w,
+		http.StatusOK,
+		"post.html",
+		data,
+	); err != nil {
+		http.Error(
+			w,
+			http.StatusText(http.StatusInternalServerError),
+			http.StatusInternalServerError,
+		)
+	}
+}
+
+func parsePostID(path string) (int64, error) {
+	const prefix = "/posts/"
+
+	if !strings.HasPrefix(path, prefix) {
+		return 0, strconv.ErrSyntax
+	}
+
+	rawID := strings.TrimPrefix(
+		path,
+		prefix,
+	)
+
+	if rawID == "" || strings.Contains(rawID, "/") {
+		return 0, strconv.ErrSyntax
+	}
+
+	id, err := strconv.ParseInt(
+		rawID,
+		10,
+		64,
+	)
+	if err != nil || id <= 0 {
+		return 0, strconv.ErrSyntax
+	}
+
+	return id, nil
+}
