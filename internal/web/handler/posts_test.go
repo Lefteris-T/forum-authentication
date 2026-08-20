@@ -10,9 +10,19 @@ import (
 
 	"forum/internal/model"
 	"forum/internal/repository"
+	"forum/internal/validation"
 	"forum/internal/web/middleware"
 	"forum/internal/web/view"
 )
+
+type fakeCategoryReader struct {
+	categories []model.Category
+	err        error
+}
+
+func (f *fakeCategoryReader) All() ([]model.Category, error) {
+	return f.categories, f.err
+}
 
 type fakePostReader struct {
 	posts  []repository.PostListItem
@@ -28,6 +38,26 @@ func (f *fakePostReader) Detail(
 	id int64,
 ) (repository.PostDetail, error) {
 	return f.detail, f.err
+}
+
+type fakePostCreationService struct {
+	called   bool
+	authorID int64
+	input    validation.PostInput
+
+	postID int64
+	err    error
+}
+
+func (f *fakePostCreationService) Create(
+	authorID int64,
+	input validation.PostInput,
+) (int64, error) {
+	f.called = true
+	f.authorID = authorID
+	f.input = input
+
+	return f.postID, f.err
 }
 
 func TestHomeHandlerEmptyList(t *testing.T) {
@@ -522,6 +552,312 @@ func TestPublicPagesContainNoJavaScript(t *testing.T) {
 						value,
 					)
 				}
+			}
+		})
+	}
+}
+func TestNewPostHandlerShowsCategoriesToAuthenticatedUser(t *testing.T) {
+	dir := t.TempDir()
+
+	err := os.WriteFile(
+		filepath.Join(dir, "new_post.html"),
+		[]byte(`
+			<!doctype html>
+			<html>
+			<body>
+				<form method="post" action="/posts">
+					<input name="title">
+					<textarea name="body"></textarea>
+
+					{{range .Categories}}
+						<label>
+							<input
+								type="checkbox"
+								name="category"
+								value="{{.ID}}"
+							>
+							{{.Name}}
+						</label>
+					{{end}}
+
+					<button type="submit">Create</button>
+				</form>
+			</body>
+			</html>
+		`),
+		0o644,
+	)
+	if err != nil {
+		t.Fatalf("WriteFile(): %v", err)
+	}
+
+	renderer, err := view.NewRenderer(dir)
+	if err != nil {
+		t.Fatalf("NewRenderer(): %v", err)
+	}
+
+	categories := &fakeCategoryReader{
+		categories: []model.Category{
+			{ID: 1, Name: "General"},
+			{ID: 2, Name: "Go"},
+		},
+	}
+
+	h := NewPostCreationHandler(
+		nil,
+		categories,
+		renderer,
+	)
+
+	req := httptest.NewRequest(
+		http.MethodGet,
+		"/posts/new",
+		nil,
+	)
+
+	ctx := middleware.ContextWithUser(
+		req.Context(),
+		model.User{
+			ID:       42,
+			Username: "lefteris",
+		},
+	)
+
+	req = req.WithContext(ctx)
+
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf(
+			"status = %d, want %d",
+			rec.Code,
+			http.StatusOK,
+		)
+	}
+
+	body := rec.Body.String()
+
+	if !strings.Contains(body, "General") {
+		t.Fatal("General category was not rendered")
+	}
+
+	if !strings.Contains(body, "Go") {
+		t.Fatal("Go category was not rendered")
+	}
+}
+func TestNewPostHandlerRejectsGuest(t *testing.T) {
+	dir := t.TempDir()
+
+	err := os.WriteFile(
+		filepath.Join(dir, "new_post.html"),
+		[]byte(`
+			<!doctype html>
+			<html>
+			<body>
+				<form method="post" action="/posts"></form>
+			</body>
+			</html>
+		`),
+		0o644,
+	)
+	if err != nil {
+		t.Fatalf("WriteFile(): %v", err)
+	}
+
+	renderer, err := view.NewRenderer(dir)
+	if err != nil {
+		t.Fatalf("NewRenderer(): %v", err)
+	}
+
+	categories := &fakeCategoryReader{}
+
+	h := NewPostCreationHandler(
+		nil,
+		categories,
+		renderer,
+	)
+
+	req := httptest.NewRequest(
+		http.MethodGet,
+		"/posts/new",
+		nil,
+	)
+
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf(
+			"status = %d, want %d",
+			rec.Code,
+			http.StatusUnauthorized,
+		)
+	}
+}
+func TestPostCreationHandlerPOSTAcceptsOneOrManyCategories(t *testing.T) {
+	tests := []struct {
+		name    string
+		form    string
+		wantIDs []int64
+	}{
+		{
+			name:    "one category",
+			form:    "title=Hello&body=World&category=1",
+			wantIDs: []int64{1},
+		},
+		{
+			name:    "many categories",
+			form:    "title=Hello&body=World&category=1&category=2&category=4",
+			wantIDs: []int64{1, 2, 4},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			service := &fakePostCreationService{
+				postID: 99,
+			}
+
+			h := NewPostCreationHandler(
+				service,
+				nil,
+				nil,
+			)
+
+			req := httptest.NewRequest(
+				http.MethodPost,
+				"/posts",
+				strings.NewReader(tt.form),
+			)
+
+			req.Header.Set(
+				"Content-Type",
+				"application/x-www-form-urlencoded",
+			)
+
+			ctx := middleware.ContextWithUser(
+				req.Context(),
+				model.User{
+					ID:       42,
+					Username: "lefteris",
+				},
+			)
+
+			req = req.WithContext(ctx)
+
+			rec := httptest.NewRecorder()
+
+			h.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusSeeOther {
+				t.Fatalf(
+					"status = %d, want %d",
+					rec.Code,
+					http.StatusSeeOther,
+				)
+			}
+
+			if !service.called {
+				t.Fatal("post service Create() was not called")
+			}
+
+			if service.authorID != 42 {
+				t.Fatalf(
+					"authorID = %d, want 42",
+					service.authorID,
+				)
+			}
+
+			if len(service.input.CategoryIDs) != len(tt.wantIDs) {
+				t.Fatalf(
+					"category count = %d, want %d",
+					len(service.input.CategoryIDs),
+					len(tt.wantIDs),
+				)
+			}
+
+			for i, wantID := range tt.wantIDs {
+				if service.input.CategoryIDs[i] != wantID {
+					t.Fatalf(
+						"category[%d] = %d, want %d",
+						i,
+						service.input.CategoryIDs[i],
+						wantID,
+					)
+				}
+			}
+		})
+	}
+}
+func TestPostCreationHandlerPOSTInvalidInputReturnsBadRequest(t *testing.T) {
+	tests := []struct {
+		name string
+		form string
+	}{
+		{
+			name: "empty title",
+			form: "title=&body=World&category=1",
+		},
+		{
+			name: "empty body",
+			form: "title=Hello&body=&category=1",
+		},
+		{
+			name: "missing category",
+			form: "title=Hello&body=World",
+		},
+		{
+			name: "invalid category id",
+			form: "title=Hello&body=World&category=abc",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			service := &fakePostCreationService{
+				err: validation.ErrPostTitleRequired,
+			}
+
+			h := NewPostCreationHandler(
+				service,
+				nil,
+				nil,
+			)
+
+			req := httptest.NewRequest(
+				http.MethodPost,
+				"/posts",
+				strings.NewReader(tt.form),
+			)
+
+			req.Header.Set(
+				"Content-Type",
+				"application/x-www-form-urlencoded",
+			)
+
+			ctx := middleware.ContextWithUser(
+				req.Context(),
+				model.User{
+					ID:       42,
+					Username: "lefteris",
+				},
+			)
+
+			req = req.WithContext(ctx)
+
+			rec := httptest.NewRecorder()
+
+			h.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf(
+					"status = %d, want %d",
+					rec.Code,
+					http.StatusBadRequest,
+				)
 			}
 		})
 	}
