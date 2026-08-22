@@ -1,6 +1,8 @@
 package web
 
 import (
+	"forum/internal/web/middleware"
+	"log"
 	"net/http"
 	"strings"
 )
@@ -200,4 +202,16 @@ func commentRoutes(
 			)
 		}
 	})
+}
+func WithMiddleware(
+	logger *log.Logger,
+	next http.Handler,
+) http.Handler {
+	return middleware.RequestLogging(
+		logger,
+		middleware.Recovery(
+			logger,
+			next,
+		),
+	)
 }

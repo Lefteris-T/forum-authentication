@@ -1,6 +1,8 @@
 package web
 
 import (
+	"bytes"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -809,5 +811,77 @@ func TestForumRouterRejectsGETOnMutationRoutes(t *testing.T) {
 				)
 			}
 		})
+	}
+}
+func TestMiddlewareStackRecoversAndKeepsServing(t *testing.T) {
+	var logs bytes.Buffer
+
+	logger := log.New(
+		&logs,
+		"",
+		0,
+	)
+
+	calls := 0
+
+	handler := http.HandlerFunc(func(
+		w http.ResponseWriter,
+		r *http.Request,
+	) {
+		calls++
+
+		if calls == 1 {
+			panic("secret panic data")
+		}
+
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	h := WithMiddleware(
+		logger,
+		handler,
+	)
+
+	firstReq := httptest.NewRequest(
+		http.MethodGet,
+		"/panic",
+		nil,
+	)
+
+	firstRec := httptest.NewRecorder()
+
+	h.ServeHTTP(firstRec, firstReq)
+
+	if firstRec.Code != http.StatusInternalServerError {
+		t.Fatalf(
+			"first status = %d, want %d",
+			firstRec.Code,
+			http.StatusInternalServerError,
+		)
+	}
+
+	secondReq := httptest.NewRequest(
+		http.MethodGet,
+		"/ok",
+		nil,
+	)
+
+	secondRec := httptest.NewRecorder()
+
+	h.ServeHTTP(secondRec, secondReq)
+
+	if secondRec.Code != http.StatusNoContent {
+		t.Fatalf(
+			"second status = %d, want %d",
+			secondRec.Code,
+			http.StatusNoContent,
+		)
+	}
+
+	if strings.Contains(
+		logs.String(),
+		"secret panic data",
+	) {
+		t.Fatal("panic secret leaked to logs")
 	}
 }
