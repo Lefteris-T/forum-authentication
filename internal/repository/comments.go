@@ -57,3 +57,25 @@ func (r *CommentRepository) Create(
 
 	return commentID, nil
 }
+
+func (r *CommentRepository) PostIDForComment(
+	commentID int64,
+) (int64, error) {
+	var postID int64
+
+	err := r.db.QueryRow(`
+		SELECT post_id
+		FROM comments
+		WHERE id = ?
+	`, commentID).Scan(&postID)
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, ErrCommentNotFound
+	}
+
+	if err != nil {
+		return 0, err
+	}
+
+	return postID, nil
+}
