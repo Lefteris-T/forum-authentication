@@ -1008,3 +1008,100 @@ func TestPostRepositoryListByCategoryReturnsNotFoundForUnknownCategory(t *testin
 		)
 	}
 }
+func TestPostRepositoryListByAuthorReturnsOnlyOwnPosts(t *testing.T) {
+	dbPath := filepath.Join(
+		t.TempDir(),
+		"forum.db",
+	)
+
+	db, err := database.Open(dbPath)
+	if err != nil {
+		t.Fatalf("database.Open(): %v", err)
+	}
+	defer db.Close()
+
+	err = database.Migrate(
+		db,
+		filepath.Join("..", "..", "migrations"),
+	)
+	if err != nil {
+		t.Fatalf("database.Migrate(): %v", err)
+	}
+
+	users := NewUserRepository(db)
+
+	userAID, err := users.Create(
+		"a@example.com",
+		"userA",
+		"password-hash",
+	)
+	if err != nil {
+		t.Fatalf("create user A: %v", err)
+	}
+
+	userBID, err := users.Create(
+		"b@example.com",
+		"userB",
+		"password-hash",
+	)
+	if err != nil {
+		t.Fatalf("create user B: %v", err)
+	}
+
+	posts := NewPostRepository(db)
+
+	ownPostID, err := posts.Create(
+		userAID,
+		"My post",
+		"Body",
+		[]int64{1, 2},
+	)
+	if err != nil {
+		t.Fatalf("create own post: %v", err)
+	}
+
+	_, err = posts.Create(
+		userBID,
+		"Other post",
+		"Body",
+		[]int64{4},
+	)
+	if err != nil {
+		t.Fatalf("create other post: %v", err)
+	}
+
+	got, err := posts.ListByAuthor(userAID)
+	if err != nil {
+		t.Fatalf("ListByAuthor(): %v", err)
+	}
+
+	if len(got) != 1 {
+		t.Fatalf(
+			"len(posts) = %d, want 1",
+			len(got),
+		)
+	}
+
+	if got[0].ID != ownPostID {
+		t.Fatalf(
+			"post ID = %d, want %d",
+			got[0].ID,
+			ownPostID,
+		)
+	}
+
+	if got[0].Author.ID != userAID {
+		t.Fatalf(
+			"author ID = %d, want %d",
+			got[0].Author.ID,
+			userAID,
+		)
+	}
+
+	if len(got[0].Categories) != 2 {
+		t.Fatalf(
+			"category count = %d, want 2",
+			len(got[0].Categories),
+		)
+	}
+}

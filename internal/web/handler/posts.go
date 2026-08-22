@@ -19,6 +19,10 @@ type PostReader interface {
 		categoryID int64,
 	) ([]repository.PostListItem, error)
 
+	ListByAuthor(
+		authorID int64,
+	) ([]repository.PostListItem, error)
+
 	Detail(id int64) (repository.PostDetail, error)
 }
 
@@ -58,13 +62,26 @@ func (h *HomeHandler) ServeHTTP(
 	}
 
 	categoryValue := r.URL.Query().Get("category")
+	filterValue := r.URL.Query().Get("filter")
 
 	var posts []repository.PostListItem
 	var err error
 
-	if categoryValue == "" {
-		posts, err = h.posts.List()
-	} else {
+	switch {
+	case filterValue == "created":
+		user, ok := middleware.CurrentUser(r.Context())
+		if !ok {
+			http.Error(
+				w,
+				http.StatusText(http.StatusUnauthorized),
+				http.StatusUnauthorized,
+			)
+			return
+		}
+
+		posts, err = h.posts.ListByAuthor(user.ID)
+
+	case categoryValue != "":
 		categoryID, parseErr := strconv.ParseInt(
 			categoryValue,
 			10,
@@ -80,6 +97,9 @@ func (h *HomeHandler) ServeHTTP(
 		}
 
 		posts, err = h.posts.ListByCategory(categoryID)
+
+	default:
+		posts, err = h.posts.List()
 	}
 
 	if errors.Is(err, repository.ErrCategoryNotFound) {

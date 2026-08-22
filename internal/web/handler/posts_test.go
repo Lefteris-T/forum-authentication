@@ -31,6 +31,17 @@ type fakePostReader struct {
 	categoryPosts []repository.PostListItem
 	categoryErr   error
 	categoryID    int64
+	authorPosts   []repository.PostListItem
+	authorErr     error
+	authorID      int64
+}
+
+func (f *fakePostReader) ListByAuthor(
+	authorID int64,
+) ([]repository.PostListItem, error) {
+	f.authorID = authorID
+
+	return f.authorPosts, f.authorErr
 }
 
 func (f *fakePostReader) List() ([]repository.PostListItem, error) {
@@ -996,6 +1007,114 @@ func TestHomeHandlerReturnsNotFoundForUnknownCategory(t *testing.T) {
 			"status = %d, want %d",
 			rec.Code,
 			http.StatusNotFound,
+		)
+	}
+}
+func TestHomeHandlerFiltersCreatedPostsForCurrentUser(t *testing.T) {
+	dir := t.TempDir()
+
+	err := os.WriteFile(
+		filepath.Join(dir, "home.html"),
+		[]byte(`
+			<!doctype html>
+			<html>
+			<body>
+				{{range .Posts}}
+					<h2>{{.Title}}</h2>
+				{{end}}
+			</body>
+			</html>
+		`),
+		0o644,
+	)
+	if err != nil {
+		t.Fatalf("WriteFile(): %v", err)
+	}
+
+	renderer, err := view.NewRenderer(dir)
+	if err != nil {
+		t.Fatalf("NewRenderer(): %v", err)
+	}
+
+	posts := &fakePostReader{
+		authorPosts: []repository.PostListItem{
+			{
+				ID:    10,
+				Title: "My post",
+			},
+		},
+	}
+
+	h := NewHomeHandler(
+		posts,
+		renderer,
+	)
+
+	req := httptest.NewRequest(
+		http.MethodGet,
+		"/?filter=created",
+		nil,
+	)
+
+	ctx := middleware.ContextWithUser(
+		req.Context(),
+		model.User{
+			ID:       42,
+			Username: "lefteris",
+		},
+	)
+
+	req = req.WithContext(ctx)
+
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf(
+			"status = %d, want %d",
+			rec.Code,
+			http.StatusOK,
+		)
+	}
+
+	if posts.authorID != 42 {
+		t.Fatalf(
+			"authorID = %d, want 42",
+			posts.authorID,
+		)
+	}
+
+	if !strings.Contains(
+		rec.Body.String(),
+		"My post",
+	) {
+		t.Fatal("created post was not rendered")
+	}
+}
+func TestHomeHandlerRejectsGuestCreatedFilter(t *testing.T) {
+	posts := &fakePostReader{}
+
+	h := NewHomeHandler(
+		posts,
+		nil,
+	)
+
+	req := httptest.NewRequest(
+		http.MethodGet,
+		"/?filter=created",
+		nil,
+	)
+
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf(
+			"status = %d, want %d",
+			rec.Code,
+			http.StatusUnauthorized,
 		)
 	}
 }
