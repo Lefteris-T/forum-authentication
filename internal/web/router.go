@@ -23,6 +23,7 @@ type Handlers struct {
 	CommentCreate   http.Handler
 	PostReaction    http.Handler
 	CommentReaction http.Handler
+	Static          http.Handler
 }
 
 func NewRouter(routes []Route) http.Handler {
@@ -118,6 +119,14 @@ func NewForumRouter(h Handlers) http.Handler {
 			Methods: []string{http.MethodPost},
 			Pattern: "/posts",
 			Handler: h.PostCreation,
+		},
+		{
+			Methods: []string{http.MethodGet},
+			Pattern: "/static/",
+			Handler: http.StripPrefix(
+				"/static/",
+				h.Static,
+			),
 		},
 		{
 			Methods: nil,

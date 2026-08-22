@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>Login - Forum</title>
+
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+    <header>
+        <nav aria-label="Main navigation">
+            <a href="/">Forum</a>
+            <a href="/register">Register</a>
+        </nav>
+    </header>
+
+    <main>
+        <section aria-labelledby="login-title">
+            <h1 id="login-title">Login</h1>
+
+            {{if .Error}}
+                <p role="alert">
+                    {{.Error}}
+                </p>
+            {{end}}
+
+            <form method="post" action="/login">
+                <div>
+                    <label for="email">Email</label>
+                    <input
+                        id="email"
+                        name="email"
+                        type="email"
+                        value="{{.Email}}"
+                        autocomplete="email"
+                        required
+                    >
+                </div>
+
+                <div>
+                    <label for="password">Password</label>
+                    <input
+                        id="password"
+                        name="password"
+                        type="password"
+                        autocomplete="current-password"
+                        required
+                    >
+                </div>
+
+                <button type="submit">
+                    Login
+                </button>
+            </form>
+
+            <p>
+                No account yet?
+                <a href="/register">Register</a>
+            </p>
+        </section>
+    </main>
+</body>
+</html>

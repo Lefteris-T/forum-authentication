@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>Register - Forum</title>
+
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+    <header>
+        <nav aria-label="Main navigation">
+            <a href="/">Forum</a>
+            <a href="/login">Login</a>
+        </nav>
+    </header>
+
+    <main>
+        <section aria-labelledby="register-title">
+            <h1 id="register-title">Create account</h1>
+
+            {{if .Error}}
+                <p role="alert">
+                    {{.Error}}
+                </p>
+            {{end}}
+
+            <form method="post" action="/register">
+                <div>
+                    <label for="email">Email</label>
+                    <input
+                        id="email"
+                        name="email"
+                        type="email"
+                        value="{{.Email}}"
+                        autocomplete="email"
+                        required
+                    >
+                </div>
+
+                <div>
+                    <label for="username">Username</label>
+                    <input
+                        id="username"
+                        name="username"
+                        type="text"
+                        value="{{.Username}}"
+                        autocomplete="username"
+                        required
+                    >
+                </div>
+
+                <div>
+                    <label for="password">Password</label>
+                    <input
+                        id="password"
+                        name="password"
+                        type="password"
+                        autocomplete="new-password"
+                        required
+                    >
+                </div>
+
+                <button type="submit">
+                    Register
+                </button>
+            </form>
+
+            <p>
+                Already have an account?
+                <a href="/login">Login</a>
+            </p>
+        </section>
+    </main>
+</body>
+</html>

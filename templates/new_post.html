@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>New Post - Forum</title>
+
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+    <header>
+        <nav aria-label="Main navigation">
+            <a href="/">Forum</a>
+        </nav>
+    </header>
+
+    <main>
+        <section aria-labelledby="new-post-title">
+            <h1 id="new-post-title">Create post</h1>
+
+            <form method="post" action="/posts">
+                <div>
+                    <label for="title">Title</label>
+
+               <input
+    id="title"
+    name="title"
+    type="text"
+    required
+>
+                </div>
+
+                <div>
+                    <label for="body">Body</label>
+
+                <textarea
+    id="body"
+    name="body"
+    rows="10"
+    required
+></textarea>
+                </div>
+
+                <fieldset>
+                    <legend>Categories</legend>
+
+                    {{range .Categories}}
+                        <div>
+                            <input
+                                id="category-{{.ID}}"
+                                name="category"
+                                type="checkbox"
+                                value="{{.ID}}"
+                            >
+
+                            <label for="category-{{.ID}}">
+                                {{.Name}}
+                            </label>
+                        </div>
+                    {{end}}
+                </fieldset>
+
+                <button type="submit">
+                    Create post
+                </button>
+            </form>
+        </section>
+    </main>
+</body>
+</html>

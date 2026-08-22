@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>{{.Post.Title}} - Forum</title>
+
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+    <header>
+        <nav aria-label="Main navigation">
+            <a href="/">Forum</a>
+
+            {{if .CurrentUser}}
+                <a href="/posts/new">New post</a>
+
+                <form method="post" action="/logout">
+                    <button type="submit">Logout</button>
+                </form>
+            {{else}}
+                <a href="/login">Login</a>
+                <a href="/register">Register</a>
+            {{end}}
+        </nav>
+    </header>
+
+    <main>
+        <article>
+            <header>
+                <h1>{{.Post.Title}}</h1>
+
+                <p>
+                    By {{.Post.Author.Username}}
+                </p>
+            </header>
+
+            <p>{{.Post.Body}}</p>
+
+            {{if .Post.Categories}}
+                <ul aria-label="Post categories">
+                    {{range .Post.Categories}}
+                        <li>
+                            <a href="/?category={{.ID}}">
+                                {{.Name}}
+                            </a>
+                        </li>
+                    {{end}}
+                </ul>
+            {{end}}
+
+            <footer>
+                <span>Likes: {{.Post.Likes}}</span>
+                <span>Dislikes: {{.Post.Dislikes}}</span>
+
+                {{if .CurrentUser}}
+                    <form
+                        method="post"
+                        action="/posts/{{.Post.ID}}/react"
+                    >
+                        <button
+                            type="submit"
+                            name="value"
+                            value="1"
+                        >
+                            Like
+                        </button>
+
+                        <button
+                            type="submit"
+                            name="value"
+                            value="-1"
+                        >
+                            Dislike
+                        </button>
+                    </form>
+                {{end}}
+            </footer>
+        </article>
+
+        <section aria-labelledby="comments-title">
+            <h2 id="comments-title">Comments</h2>
+
+            {{if .Post.Comments}}
+                {{range .Post.Comments}}
+                    <article>
+                        <header>
+                            <p>
+                                <strong>{{.Author.Username}}</strong>
+                            </p>
+                        </header>
+
+                        <p>{{.Body}}</p>
+
+                        <footer>
+                            <span>Likes: {{.Likes}}</span>
+                            <span>Dislikes: {{.Dislikes}}</span>
+
+                            {{if $.CurrentUser}}
+                                <form
+                                    method="post"
+                                    action="/comments/{{.ID}}/react"
+                                >
+                                    <button
+                                        type="submit"
+                                        name="value"
+                                        value="1"
+                                    >
+                                        Like
+                                    </button>
+
+                                    <button
+                                        type="submit"
+                                        name="value"
+                                        value="-1"
+                                    >
+                                        Dislike
+                                    </button>
+                                </form>
+                            {{end}}
+                        </footer>
+                    </article>
+                {{end}}
+            {{else}}
+                <p>No comments yet.</p>
+            {{end}}
+        </section>
+
+        {{if .CurrentUser}}
+            <section aria-labelledby="comment-form-title">
+                <h2 id="comment-form-title">
+                    Add comment
+                </h2>
+
+                <form
+                    method="post"
+                    action="/posts/{{.Post.ID}}/comments"
+                >
+                    <div>
+                        <label for="comment-body">
+                            Comment
+                        </label>
+
+                        <textarea
+                            id="comment-body"
+                            name="body"
+                            rows="6"
+                            required
+                        ></textarea>
+                    </div>
+
+                    <button type="submit">
+                        Add comment
+                    </button>
+                </form>
+            </section>
+        {{else}}
+            <p>
+                <a href="/login">Login</a>
+                to add a comment or reaction.
+            </p>
+        {{end}}
+    </main>
+</body>
+</html>

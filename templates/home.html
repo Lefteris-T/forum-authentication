@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>Forum</title>
+
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+    <header>
+        <nav aria-label="Main navigation">
+            <a href="/">Forum</a>
+
+            {{if .CurrentUser}}
+                <a href="/posts/new">New post</a>
+                <a href="/?filter=created">My posts</a>
+                <a href="/?filter=liked">Liked posts</a>
+
+                <form method="post" action="/logout">
+                    <button type="submit">Logout</button>
+                </form>
+            {{else}}
+                <a href="/login">Login</a>
+                <a href="/register">Register</a>
+            {{end}}
+        </nav>
+    </header>
+
+    <main>
+        <header>
+            <h1>Forum</h1>
+
+            {{if .CurrentUser}}
+                <p>
+                    Signed in as
+                    <strong>{{.CurrentUser.Username}}</strong>
+                </p>
+            {{end}}
+        </header>
+
+        {{if .Posts}}
+            <section aria-labelledby="posts-title">
+                <h2 id="posts-title">Posts</h2>
+
+                {{range .Posts}}
+                    <article>
+                        <header>
+                            <h3>
+                                <a href="/posts/{{.ID}}">
+                                    {{.Title}}
+                                </a>
+                            </h3>
+
+                            <p>
+                                By {{.Author.Username}}
+                            </p>
+                        </header>
+
+                        <p>{{.Body}}</p>
+
+                        {{if .Categories}}
+                            <ul aria-label="Post categories">
+                                {{range .Categories}}
+                                    <li>
+                                        <a href="/?category={{.ID}}">
+                                            {{.Name}}
+                                        </a>
+                                    </li>
+                                {{end}}
+                            </ul>
+                        {{end}}
+
+                        <footer>
+                            <span>Likes: {{.Likes}}</span>
+                            <span>Dislikes: {{.Dislikes}}</span>
+                        </footer>
+                    </article>
+                {{end}}
+            </section>
+        {{else}}
+            <p>No posts yet.</p>
+        {{end}}
+    </main>
+</body>
+</html>

@@ -5,6 +5,8 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -883,5 +885,62 @@ func TestMiddlewareStackRecoversAndKeepsServing(t *testing.T) {
 		"secret panic data",
 	) {
 		t.Fatal("panic secret leaked to logs")
+	}
+}
+func TestForumRouterServesStaticCSS(t *testing.T) {
+	dir := t.TempDir()
+
+	err := os.WriteFile(
+		filepath.Join(dir, "style.css"),
+		[]byte("body { margin: 0; }"),
+		0o644,
+	)
+	if err != nil {
+		t.Fatalf("WriteFile(): %v", err)
+	}
+
+	okHandler := http.HandlerFunc(func(
+		w http.ResponseWriter,
+		r *http.Request,
+	) {
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	router := NewForumRouter(Handlers{
+		Home:            okHandler,
+		Register:        okHandler,
+		Login:           okHandler,
+		Logout:          okHandler,
+		PostCreation:    okHandler,
+		PostDetail:      okHandler,
+		CommentCreate:   okHandler,
+		PostReaction:    okHandler,
+		CommentReaction: okHandler,
+		Static:          http.FileServer(http.Dir(dir)),
+	})
+
+	req := httptest.NewRequest(
+		http.MethodGet,
+		"/static/style.css",
+		nil,
+	)
+
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf(
+			"status = %d, want %d",
+			rec.Code,
+			http.StatusOK,
+		)
+	}
+
+	if !strings.Contains(
+		rec.Body.String(),
+		"body",
+	) {
+		t.Fatal("CSS file was not served")
 	}
 }
