@@ -14,6 +14,11 @@ import (
 
 type PostReader interface {
 	List() ([]repository.PostListItem, error)
+
+	ListByCategory(
+		categoryID int64,
+	) ([]repository.PostListItem, error)
+
 	Detail(id int64) (repository.PostDetail, error)
 }
 
@@ -52,7 +57,40 @@ func (h *HomeHandler) ServeHTTP(
 		return
 	}
 
-	posts, err := h.posts.List()
+	categoryValue := r.URL.Query().Get("category")
+
+	var posts []repository.PostListItem
+	var err error
+
+	if categoryValue == "" {
+		posts, err = h.posts.List()
+	} else {
+		categoryID, parseErr := strconv.ParseInt(
+			categoryValue,
+			10,
+			64,
+		)
+		if parseErr != nil || categoryID <= 0 {
+			http.Error(
+				w,
+				http.StatusText(http.StatusBadRequest),
+				http.StatusBadRequest,
+			)
+			return
+		}
+
+		posts, err = h.posts.ListByCategory(categoryID)
+	}
+
+	if errors.Is(err, repository.ErrCategoryNotFound) {
+		http.Error(
+			w,
+			http.StatusText(http.StatusNotFound),
+			http.StatusNotFound,
+		)
+		return
+	}
+
 	if err != nil {
 		http.Error(
 			w,

@@ -888,3 +888,123 @@ func TestPostRepositoryDetailReturnsNotFoundForMissingPost(t *testing.T) {
 		)
 	}
 }
+func TestPostRepositoryListByCategoryReturnsExactPosts(t *testing.T) {
+	dbPath := filepath.Join(
+		t.TempDir(),
+		"forum.db",
+	)
+
+	db, err := database.Open(dbPath)
+	if err != nil {
+		t.Fatalf("database.Open(): %v", err)
+	}
+	defer db.Close()
+
+	err = database.Migrate(
+		db,
+		filepath.Join("..", "..", "migrations"),
+	)
+	if err != nil {
+		t.Fatalf("database.Migrate(): %v", err)
+	}
+
+	users := NewUserRepository(db)
+
+	authorID, err := users.Create(
+		"author@example.com",
+		"author",
+		"password-hash",
+	)
+	if err != nil {
+		t.Fatalf("users.Create(): %v", err)
+	}
+
+	posts := NewPostRepository(db)
+
+	goPostID, err := posts.Create(
+		authorID,
+		"Go post",
+		"Body",
+		[]int64{2},
+	)
+	if err != nil {
+		t.Fatalf("create Go post: %v", err)
+	}
+
+	_, err = posts.Create(
+		authorID,
+		"DevOps post",
+		"Body",
+		[]int64{4},
+	)
+	if err != nil {
+		t.Fatalf("create DevOps post: %v", err)
+	}
+
+	multiPostID, err := posts.Create(
+		authorID,
+		"Go and DevOps",
+		"Body",
+		[]int64{2, 4},
+	)
+	if err != nil {
+		t.Fatalf("create multi-category post: %v", err)
+	}
+
+	got, err := posts.ListByCategory(2)
+	if err != nil {
+		t.Fatalf("ListByCategory(): %v", err)
+	}
+
+	if len(got) != 2 {
+		t.Fatalf(
+			"len(posts) = %d, want 2",
+			len(got),
+		)
+	}
+
+	gotIDs := map[int64]bool{
+		got[0].ID: true,
+		got[1].ID: true,
+	}
+
+	if !gotIDs[goPostID] {
+		t.Fatal("Go post was not returned")
+	}
+
+	if !gotIDs[multiPostID] {
+		t.Fatal("multi-category Go post was not returned")
+	}
+}
+func TestPostRepositoryListByCategoryReturnsNotFoundForUnknownCategory(t *testing.T) {
+	dbPath := filepath.Join(
+		t.TempDir(),
+		"forum.db",
+	)
+
+	db, err := database.Open(dbPath)
+	if err != nil {
+		t.Fatalf("database.Open(): %v", err)
+	}
+	defer db.Close()
+
+	err = database.Migrate(
+		db,
+		filepath.Join("..", "..", "migrations"),
+	)
+	if err != nil {
+		t.Fatalf("database.Migrate(): %v", err)
+	}
+
+	posts := NewPostRepository(db)
+
+	_, err = posts.ListByCategory(999)
+
+	if !errors.Is(err, ErrCategoryNotFound) {
+		t.Fatalf(
+			"ListByCategory() error = %v, want %v",
+			err,
+			ErrCategoryNotFound,
+		)
+	}
+}

@@ -475,3 +475,113 @@ func (r *PostRepository) commentsForPost(
 
 	return comments, nil
 }
+func (r *PostRepository) ListByCategory(
+	categoryID int64,
+) ([]PostListItem, error) {
+	var exists int
+
+	err := r.db.QueryRow(`
+		SELECT 1
+		FROM categories
+		WHERE id = ?
+	`, categoryID).Scan(&exists)
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrCategoryNotFound
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := r.db.Query(`
+		SELECT
+			p.id,
+			p.title,
+			p.body,
+			p.created_at,
+			u.id,
+			u.email,
+			u.username,
+			u.password_hash,
+			u.created_at,
+			COALESCE(SUM(
+				CASE WHEN pr.value = 1 THEN 1 ELSE 0 END
+			), 0) AS likes,
+			COALESCE(SUM(
+				CASE WHEN pr.value = -1 THEN 1 ELSE 0 END
+			), 0) AS dislikes
+		FROM posts p
+		JOIN users u
+			ON u.id = p.author_id
+		JOIN post_categories pc
+			ON pc.post_id = p.id
+		LEFT JOIN post_reactions pr
+			ON pr.post_id = p.id
+		WHERE pc.category_id = ?
+		GROUP BY p.id
+		ORDER BY p.created_at DESC, p.id DESC
+	`, categoryID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var posts []PostListItem
+
+	for rows.Next() {
+		var post PostListItem
+		var postCreatedAt string
+		var userCreatedAt string
+
+		err := rows.Scan(
+			&post.ID,
+			&post.Title,
+			&post.Body,
+			&postCreatedAt,
+			&post.Author.ID,
+			&post.Author.Email,
+			&post.Author.Username,
+			&post.Author.PasswordHash,
+			&userCreatedAt,
+			&post.Likes,
+			&post.Dislikes,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		post.CreatedAt, err = time.Parse(
+			time.RFC3339,
+			postCreatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		post.Author.CreatedAt, err = time.Parse(
+			time.RFC3339,
+			userCreatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		posts = append(posts, post)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	categoriesByPost, err := r.categoriesForPosts(posts)
+	if err != nil {
+		return nil, err
+	}
+
+	for i := range posts {
+		posts[i].Categories = categoriesByPost[posts[i].ID]
+	}
+
+	return posts, nil
+}

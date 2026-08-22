@@ -25,9 +25,12 @@ func (f *fakeCategoryReader) All() ([]model.Category, error) {
 }
 
 type fakePostReader struct {
-	posts  []repository.PostListItem
-	detail repository.PostDetail
-	err    error
+	posts         []repository.PostListItem
+	detail        repository.PostDetail
+	err           error
+	categoryPosts []repository.PostListItem
+	categoryErr   error
+	categoryID    int64
 }
 
 func (f *fakePostReader) List() ([]repository.PostListItem, error) {
@@ -58,6 +61,13 @@ func (f *fakePostCreationService) Create(
 	f.input = input
 
 	return f.postID, f.err
+}
+func (f *fakePostReader) ListByCategory(
+	categoryID int64,
+) ([]repository.PostListItem, error) {
+	f.categoryID = categoryID
+
+	return f.categoryPosts, f.categoryErr
 }
 
 func TestHomeHandlerEmptyList(t *testing.T) {
@@ -860,5 +870,132 @@ func TestPostCreationHandlerPOSTInvalidInputReturnsBadRequest(t *testing.T) {
 				)
 			}
 		})
+	}
+}
+func TestHomeHandlerFiltersByCategory(t *testing.T) {
+	dir := t.TempDir()
+
+	err := os.WriteFile(
+		filepath.Join(dir, "home.html"),
+		[]byte(`
+			<!doctype html>
+			<html>
+			<body>
+				{{range .Posts}}
+					<h2>{{.Title}}</h2>
+				{{end}}
+			</body>
+			</html>
+		`),
+		0o644,
+	)
+	if err != nil {
+		t.Fatalf("WriteFile(): %v", err)
+	}
+
+	renderer, err := view.NewRenderer(dir)
+	if err != nil {
+		t.Fatalf("NewRenderer(): %v", err)
+	}
+
+	posts := &fakePostReader{
+		categoryPosts: []repository.PostListItem{
+			{
+				ID:    10,
+				Title: "Go post",
+			},
+		},
+	}
+
+	h := NewHomeHandler(
+		posts,
+		renderer,
+	)
+
+	req := httptest.NewRequest(
+		http.MethodGet,
+		"/?category=2",
+		nil,
+	)
+
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf(
+			"status = %d, want %d",
+			rec.Code,
+			http.StatusOK,
+		)
+	}
+
+	if posts.categoryID != 2 {
+		t.Fatalf(
+			"categoryID = %d, want 2",
+			posts.categoryID,
+		)
+	}
+
+	if !strings.Contains(
+		rec.Body.String(),
+		"Go post",
+	) {
+		t.Fatal("filtered post was not rendered")
+	}
+}
+func TestHomeHandlerRejectsMalformedCategory(t *testing.T) {
+	posts := &fakePostReader{}
+
+	h := NewHomeHandler(
+		posts,
+		nil,
+	)
+
+	req := httptest.NewRequest(
+		http.MethodGet,
+		"/?category=abc",
+		nil,
+	)
+
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf(
+			"status = %d, want %d",
+			rec.Code,
+			http.StatusBadRequest,
+		)
+	}
+}
+
+func TestHomeHandlerReturnsNotFoundForUnknownCategory(t *testing.T) {
+	posts := &fakePostReader{
+		categoryErr: repository.ErrCategoryNotFound,
+	}
+
+	h := NewHomeHandler(
+		posts,
+		nil,
+	)
+
+	req := httptest.NewRequest(
+		http.MethodGet,
+		"/?category=999",
+		nil,
+	)
+
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf(
+			"status = %d, want %d",
+			rec.Code,
+			http.StatusNotFound,
+		)
 	}
 }
