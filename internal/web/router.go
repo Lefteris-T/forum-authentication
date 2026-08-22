@@ -86,7 +86,14 @@ func NewForumRouter(h Handlers) http.Handler {
 		{
 			Methods: []string{http.MethodGet},
 			Pattern: "/",
-			Handler: h.Home,
+			Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path != "/" {
+					writeError(w, http.StatusNotFound)
+					return
+				}
+
+				h.Home.ServeHTTP(w, r)
+			}),
 		},
 		{
 			Methods: []string{
