@@ -1,6 +1,8 @@
 package web
 
 import (
+	"database/sql"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -45,7 +47,12 @@ func TestIntegrationRegistrationFlow(t *testing.T) {
 	}
 }
 
-func newIntegrationServer(t *testing.T) *httptest.Server {
+type integrationEnv struct {
+	Server *httptest.Server
+	DB     *sql.DB
+}
+
+func newIntegrationEnv(t *testing.T) *integrationEnv {
 	t.Helper()
 
 	// -------------------------------------------------
@@ -268,9 +275,17 @@ func newIntegrationServer(t *testing.T) *httptest.Server {
 	// Real HTTP test server
 	// -------------------------------------------------
 
-	return httptest.NewServer(
-		appHandler,
-	)
+	return &integrationEnv{
+		Server: httptest.NewServer(appHandler),
+		DB:     db,
+	}
+}
+func newIntegrationServer(t *testing.T) *httptest.Server {
+	t.Helper()
+
+	env := newIntegrationEnv(t)
+
+	return env.Server
 }
 
 func newIntegrationBrowser(t *testing.T) *http.Client {
@@ -1322,5 +1337,261 @@ func TestIntegrationDuplicateRegistrationReturns409(t *testing.T) {
 			res.StatusCode,
 			http.StatusConflict,
 		)
+	}
+}
+func TestIntegrationSQLiteStoresRegisteredUserWithBcryptHash(t *testing.T) {
+	env := newIntegrationEnv(t)
+	defer env.Server.Close()
+
+	browser := newIntegrationBrowser(t)
+
+	res, err := browser.PostForm(
+		env.Server.URL+"/register",
+		url.Values{
+			"email": {
+				"alice@example.com",
+			},
+			"username": {
+				"alice",
+			},
+			"password": {
+				"strong-password-123",
+			},
+		},
+	)
+	if err != nil {
+		t.Fatalf("POST /register: %v", err)
+	}
+	res.Body.Close()
+
+	if res.StatusCode != http.StatusSeeOther {
+		t.Fatalf(
+			"status = %d, want %d",
+			res.StatusCode,
+			http.StatusSeeOther,
+		)
+	}
+
+	var (
+		email        string
+		username     string
+		passwordHash string
+	)
+
+	err = env.DB.QueryRow(`
+		SELECT email, username, password_hash
+		FROM users
+		WHERE email = ?
+	`,
+		"alice@example.com",
+	).Scan(
+		&email,
+		&username,
+		&passwordHash,
+	)
+	if err != nil {
+		t.Fatalf("query registered user: %v", err)
+	}
+
+	if email != "alice@example.com" {
+		t.Fatalf(
+			"email = %q, want %q",
+			email,
+			"alice@example.com",
+		)
+	}
+
+	if username != "alice" {
+		t.Fatalf(
+			"username = %q, want %q",
+			username,
+			"alice",
+		)
+	}
+
+	if passwordHash == "strong-password-123" {
+		t.Fatal("password was stored as plaintext")
+	}
+
+	if !strings.HasPrefix(passwordHash, "$2") {
+		t.Fatalf(
+			"password hash = %q, want bcrypt hash",
+			passwordHash,
+		)
+	}
+}
+func TestIntegrationSQLiteStoresPostAndComment(t *testing.T) {
+	env := newIntegrationEnv(t)
+	defer env.Server.Close()
+
+	browser := newIntegrationBrowser(t)
+
+	registerAndLogin(
+		t,
+		env.Server,
+		browser,
+		"alice@example.com",
+		"alice",
+	)
+
+	postLocation := createPost(
+		t,
+		env.Server,
+		browser,
+		"SQLite audit post",
+	)
+
+	postID := strings.TrimPrefix(
+		postLocation,
+		"/posts/",
+	)
+
+	res, err := browser.PostForm(
+		env.Server.URL+"/posts/"+postID+"/comments",
+		url.Values{
+			"body": {
+				"SQLite audit comment",
+			},
+		},
+	)
+	if err != nil {
+		t.Fatalf("POST comment: %v", err)
+	}
+	res.Body.Close()
+
+	if res.StatusCode != http.StatusSeeOther {
+		t.Fatalf(
+			"comment status = %d, want %d",
+			res.StatusCode,
+			http.StatusSeeOther,
+		)
+	}
+
+	var (
+		title    string
+		body     string
+		authorID int64
+	)
+
+	err = env.DB.QueryRow(`
+		SELECT title, body, author_id
+		FROM posts
+		WHERE id = ?
+	`, postID).Scan(
+		&title,
+		&body,
+		&authorID,
+	)
+	if err != nil {
+		t.Fatalf("query post: %v", err)
+	}
+
+	if title != "SQLite audit post" {
+		t.Fatalf(
+			"title = %q, want %q",
+			title,
+			"SQLite audit post",
+		)
+	}
+
+	if body != "Integration test body" {
+		t.Fatalf(
+			"body = %q, want %q",
+			body,
+			"Integration test body",
+		)
+	}
+
+	if authorID == 0 {
+		t.Fatal("post author_id was not stored")
+	}
+
+	var (
+		commentBody     string
+		commentAuthorID int64
+		commentPostID   int64
+	)
+
+	err = env.DB.QueryRow(`
+		SELECT body, author_id, post_id
+		FROM comments
+		WHERE body = ?
+	`, "SQLite audit comment").Scan(
+		&commentBody,
+		&commentAuthorID,
+		&commentPostID,
+	)
+	if err != nil {
+		t.Fatalf("query comment: %v", err)
+	}
+
+	if commentBody != "SQLite audit comment" {
+		t.Fatalf(
+			"comment body = %q, want %q",
+			commentBody,
+			"SQLite audit comment",
+		)
+	}
+
+	if commentAuthorID != authorID {
+		t.Fatalf(
+			"comment author_id = %d, want %d",
+			commentAuthorID,
+			authorID,
+		)
+	}
+
+	if fmt.Sprint(commentPostID) != postID {
+		t.Fatalf(
+			"comment post_id = %d, want %s",
+			commentPostID,
+			postID,
+		)
+	}
+}
+func TestIntegrationSQLiteSchemaWasCreated(t *testing.T) {
+	env := newIntegrationEnv(t)
+	defer env.Server.Close()
+
+	tables := []string{
+		"users",
+		"sessions",
+		"categories",
+		"posts",
+		"comments",
+		"post_categories",
+		"post_reactions",
+		"comment_reactions",
+	}
+
+	for _, table := range tables {
+		t.Run(table, func(t *testing.T) {
+			var sqlStatement string
+
+			err := env.DB.QueryRow(`
+				SELECT sql
+				FROM sqlite_master
+				WHERE type = 'table'
+				AND name = ?
+			`, table).Scan(&sqlStatement)
+			if err != nil {
+				t.Fatalf(
+					"table %q not found: %v",
+					table,
+					err,
+				)
+			}
+
+			if !strings.Contains(
+				strings.ToUpper(sqlStatement),
+				"CREATE TABLE",
+			) {
+				t.Fatalf(
+					"schema for %q does not contain CREATE TABLE: %q",
+					table,
+					sqlStatement,
+				)
+			}
+		})
 	}
 }
