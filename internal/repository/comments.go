@@ -2,6 +2,7 @@ package repository
 
 import (
 	"database/sql"
+	"errors"
 	"strings"
 	"time"
 )
@@ -15,6 +16,8 @@ func NewCommentRepository(db *sql.DB) *CommentRepository {
 		db: db,
 	}
 }
+
+var ErrCommentNotFound = errors.New("comment not found")
 
 func (r *CommentRepository) Create(
 	postID int64,
