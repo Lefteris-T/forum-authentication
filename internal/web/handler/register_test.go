@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"forum/internal/repository"
+	"forum/internal/service"
 	"forum/internal/validation"
 	"forum/internal/web/view"
 )
@@ -199,7 +200,10 @@ func TestRegisterPOSTInvalidInputReturnsBadRequest(t *testing.T) {
 	}
 
 	service := &fakeRegistrationService{
-		err: fmt.Errorf("invalid registration input"),
+		err: fmt.Errorf(
+			"%w: invalid registration input",
+			service.ErrInvalidRegistration,
+		),
 	}
 
 	h := NewRegisterHandler(service, renderer)
@@ -393,5 +397,82 @@ func TestRegisterWrongMethodReturnsMethodNotAllowed(t *testing.T) {
 			allow,
 			"GET, POST",
 		)
+	}
+}
+func TestRegisterHandlerDoesNotExposeInternalError(t *testing.T) {
+	dir := t.TempDir()
+
+	err := os.WriteFile(
+		filepath.Join(dir, "register.html"),
+		[]byte(`
+			<!doctype html>
+			<html>
+			<body>
+				{{if .Error}}
+					<p>{{.Error}}</p>
+				{{end}}
+			</body>
+			</html>
+		`),
+		0o644,
+	)
+	if err != nil {
+		t.Fatalf("WriteFile() error: %v", err)
+	}
+
+	renderer, err := view.NewRenderer(dir)
+	if err != nil {
+		t.Fatalf("NewRenderer() error: %v", err)
+	}
+
+	service := &fakeRegistrationService{
+		err: fmt.Errorf(
+			"sqlite: database is locked at /secret/path/forum.db",
+		),
+	}
+
+	h := NewRegisterHandler(
+		service,
+		renderer,
+	)
+
+	body := strings.NewReader(
+		"email=a@example.com&username=user&password=password123",
+	)
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/register",
+		body,
+	)
+
+	req.Header.Set(
+		"Content-Type",
+		"application/x-www-form-urlencoded",
+	)
+
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf(
+			"status = %d, want %d",
+			rec.Code,
+			http.StatusInternalServerError,
+		)
+	}
+
+	responseBody := rec.Body.String()
+
+	if strings.Contains(responseBody, "sqlite") {
+		t.Fatal("internal database error leaked to response")
+	}
+
+	if strings.Contains(
+		responseBody,
+		"/secret/path/forum.db",
+	) {
+		t.Fatal("internal path leaked to response")
 	}
 }

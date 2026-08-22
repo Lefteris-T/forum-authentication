@@ -2,11 +2,15 @@ package service
 
 import (
 	"errors"
+	"fmt"
 	"forum/internal/model"
 	"forum/internal/repository"
 	"forum/internal/validation"
 	"time"
 )
+
+var ErrInvalidRegistration = errors.New("invalid registration")
+var ErrInvalidLogin = errors.New("invalid login")
 
 type UserCreator interface {
 	Create(
@@ -40,7 +44,11 @@ func (s *AuthService) Register(
 ) (int64, error) {
 	validated, err := validation.ValidateRegistration(input)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf(
+			"%w: %v",
+			ErrInvalidRegistration,
+			err,
+		)
 	}
 
 	hash, err := s.passwords.Hash(validated.Password)
@@ -103,7 +111,11 @@ func (s *LoginService) Login(
 ) (model.User, error) {
 	validated, err := validation.ValidateLogin(input)
 	if err != nil {
-		return model.User{}, err
+		return model.User{}, fmt.Errorf(
+			"%w: %v",
+			ErrInvalidLogin,
+			err,
+		)
 	}
 
 	user, err := s.users.ByEmail(validated.Email)

@@ -284,8 +284,11 @@ func TestLoginPOSTInvalidInputReturnsBadRequest(t *testing.T) {
 		t.Fatalf("NewRenderer() error: %v", err)
 	}
 
-	service := &fakeLoginService{
-		err: fmt.Errorf("invalid email"),
+	loginService := &fakeLoginService{
+		err: fmt.Errorf(
+			"%w: invalid email",
+			service.ErrInvalidLogin,
+		),
 	}
 
 	sessions := &fakeSessionManager{
@@ -293,7 +296,7 @@ func TestLoginPOSTInvalidInputReturnsBadRequest(t *testing.T) {
 	}
 
 	h := NewLoginHandler(
-		service,
+		loginService,
 		sessions,
 		renderer,
 	)

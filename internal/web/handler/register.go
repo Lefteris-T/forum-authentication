@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"forum/internal/repository"
+	"forum/internal/service"
 	"forum/internal/validation"
 	"forum/internal/web/view"
 )
@@ -106,12 +107,13 @@ func (h *RegisterHandler) handlePost(
 	data := registerPageData{
 		Email:    input.Email,
 		Username: input.Username,
-		Error:    err.Error(),
 	}
 
 	switch {
 	case errors.Is(err, repository.ErrEmailExists),
 		errors.Is(err, repository.ErrUsernameExists):
+
+		data.Error = err.Error()
 
 		h.renderForm(
 			w,
@@ -119,11 +121,20 @@ func (h *RegisterHandler) handlePost(
 			data,
 		)
 
-	default:
+	case errors.Is(err, service.ErrInvalidRegistration):
+		data.Error = err.Error()
+
 		h.renderForm(
 			w,
 			http.StatusBadRequest,
 			data,
+		)
+
+	default:
+		http.Error(
+			w,
+			http.StatusText(http.StatusInternalServerError),
+			http.StatusInternalServerError,
 		)
 	}
 }

@@ -107,7 +107,8 @@ func (h *LoginHandler) handlePost(
 			Email: input.Email,
 		}
 
-		if errors.Is(err, service.ErrInvalidCredentials) {
+		switch {
+		case errors.Is(err, service.ErrInvalidCredentials):
 			data.Error = "Wrong email or password"
 
 			h.renderForm(
@@ -115,16 +116,24 @@ func (h *LoginHandler) handlePost(
 				http.StatusUnauthorized,
 				data,
 			)
-			return
+
+		case errors.Is(err, service.ErrInvalidLogin):
+			data.Error = err.Error()
+
+			h.renderForm(
+				w,
+				http.StatusBadRequest,
+				data,
+			)
+
+		default:
+			http.Error(
+				w,
+				http.StatusText(http.StatusInternalServerError),
+				http.StatusInternalServerError,
+			)
 		}
 
-		data.Error = err.Error()
-
-		h.renderForm(
-			w,
-			http.StatusBadRequest,
-			data,
-		)
 		return
 	}
 
