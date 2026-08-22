@@ -13,7 +13,11 @@ import (
 
 func TestRunReturnsStartupError(t *testing.T) {
 	cfg := config.Config{
-		Address: ":99999",
+		Address:         ":99999",
+		DatabasePath:    t.TempDir() + "/forum.db",
+		SessionDuration: time.Hour,
+		CookieName:      "forum_session",
+		SecureCookie:    false,
 	}
 
 	err := Run(context.Background(), cfg)
@@ -31,7 +35,11 @@ func TestRunShutsDownOnContextCancellation(t *testing.T) {
 	defer listener.Close()
 
 	cfg := config.Config{
-		Address: listener.Addr().String(),
+		Address:         listener.Addr().String(),
+		DatabasePath:    t.TempDir() + "/forum.db",
+		SessionDuration: time.Hour,
+		CookieName:      "forum_session",
+		SecureCookie:    false,
 	}
 
 	listener.Close()

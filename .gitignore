@@ -1,0 +1,25 @@
+# SQLite / runtime data
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Go build artifacts
+forum
+*.exe
+*.out
+*.test
+
+# Logs
+*.log
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
