@@ -760,7 +760,7 @@ func TestIntegrationPostReactionUpdatesCount(t *testing.T) {
 
 	if !strings.Contains(
 		body,
-		"Likes: 1",
+		"👍 1",
 	) {
 		t.Fatal("post like count was not updated")
 	}
@@ -803,7 +803,7 @@ func TestIntegrationPostReactionUpdatesCount(t *testing.T) {
 
 	if !strings.Contains(
 		body,
-		"Likes: 0",
+		"👍 0",
 	) {
 		t.Fatal("post like was not toggled off")
 	}
@@ -846,14 +846,14 @@ func TestIntegrationPostReactionUpdatesCount(t *testing.T) {
 
 	if !strings.Contains(
 		body,
-		"Likes: 0",
+		"👍 0",
 	) {
 		t.Fatal("like count should remain 0 after dislike")
 	}
 
 	if !strings.Contains(
 		body,
-		"Dislikes: 1",
+		"👎 1",
 	) {
 		t.Fatal("post dislike count was not updated")
 	}

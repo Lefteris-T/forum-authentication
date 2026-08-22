@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="en">
+
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -10,69 +11,98 @@
 </head>
 
 <body>
-    <header>
-        <nav aria-label="Main navigation">
-            <a href="/">Forum</a>
-            <a href="/login">Login</a>
-        </nav>
-    </header>
 
-    <main>
-        <section aria-labelledby="register-title">
-            <h1 id="register-title">Create account</h1>
+<header>
+    <nav aria-label="Main navigation">
+        <a href="/">Forum</a>
+        <a href="/login">Login</a>
+    </nav>
+</header>
 
-            {{if .Error}}
-                <p role="alert">
-                    {{.Error}}
-                </p>
-            {{end}}
+<main>
 
-            <form method="post" action="/register">
-                <div>
-                    <label for="email">Email</label>
-                    <input
-                        id="email"
-                        name="email"
-                        type="email"
-                        value="{{.Email}}"
-                        autocomplete="email"
-                        required
-                    >
-                </div>
+    <section
+        class="form-card compact"
+        aria-labelledby="register-title"
+    >
 
-                <div>
-                    <label for="username">Username</label>
-                    <input
-                        id="username"
-                        name="username"
-                        type="text"
-                        value="{{.Username}}"
-                        autocomplete="username"
-                        required
-                    >
-                </div>
+        <h1 id="register-title">
+            Create account
+        </h1>
 
-                <div>
-                    <label for="password">Password</label>
-                    <input
-                        id="password"
-                        name="password"
-                        type="password"
-                        autocomplete="new-password"
-                        required
-                    >
-                </div>
+        <p>
+            Join the community and start sharing
+            what you're learning.
+        </p>
 
-                <button type="submit">
-                    Register
-                </button>
-            </form>
-
-            <p>
-                Already have an account?
-                <a href="/login">Login</a>
+        {{if .Error}}
+            <p role="alert">
+                {{.Error}}
             </p>
-        </section>
-    </main>
+        {{end}}
+
+        <form method="post" action="/register">
+
+            <div>
+                <label for="email">
+                    Email
+                </label>
+
+                <input
+                    id="email"
+                    name="email"
+                    type="email"
+                    value="{{.Email}}"
+                    autocomplete="email"
+                    required
+                >
+            </div>
+
+            <div>
+                <label for="username">
+                    Username
+                </label>
+
+                <input
+                    id="username"
+                    name="username"
+                    type="text"
+                    value="{{.Username}}"
+                    autocomplete="username"
+                    required
+                >
+            </div>
+
+            <div>
+                <label for="password">
+                    Password
+                </label>
+
+                <input
+                    id="password"
+                    name="password"
+                    type="password"
+                    autocomplete="new-password"
+                    required
+                >
+            </div>
+
+            <button type="submit">
+                Create account
+            </button>
+
+        </form>
+
+        <p>
+            Already have an account?
+            <a href="/login">
+                <strong>Login</strong>
+            </a>
+        </p>
+
+    </section>
+
+</main>
+
 </body>
 </html>

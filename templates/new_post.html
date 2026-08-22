@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="en">
+
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -10,63 +11,90 @@
 </head>
 
 <body>
-    <header>
-        <nav aria-label="Main navigation">
-            <a href="/">Forum</a>
-        </nav>
-    </header>
 
-    <main>
-        <section aria-labelledby="new-post-title">
-            <h1 id="new-post-title">Create post</h1>
+<header>
+    <nav aria-label="Main navigation">
+        <a href="/">Forum</a>
+    </nav>
+</header>
 
-            <form method="post" action="/posts">
-                <div>
-                    <label for="title">Title</label>
+<main>
 
-               <input
-    id="title"
-    name="title"
-    type="text"
-    required
->
-                </div>
+    <section
+        class="form-card"
+        aria-labelledby="new-post-title"
+    >
 
-                <div>
-                    <label for="body">Body</label>
+        <h1 id="new-post-title">
+            Create a new post
+        </h1>
+
+        <p>
+            Share a question, discovery, idea,
+            or something useful you've learned.
+        </p>
+
+        <form method="post" action="/posts">
+
+            <div>
+                <label for="title">
+                    Title
+                </label>
+
+                <input
+                    id="title"
+                    name="title"
+                    type="text"
+                    required
+                >
+            </div>
+
+            <div>
+                <label for="body">
+                    Body
+                </label>
 
                 <textarea
-    id="body"
-    name="body"
-    rows="10"
-    required
-></textarea>
-                </div>
+                    id="body"
+                    name="body"
+                    rows="10"
+                    required
+                ></textarea>
+            </div>
 
-                <fieldset>
-                    <legend>Categories</legend>
+            <fieldset>
+                <legend>
+                    Categories
+                </legend>
 
-                    {{range .Categories}}
-                        <div>
-                            <input
-                                id="category-{{.ID}}"
-                                name="category"
-                                type="checkbox"
-                                value="{{.ID}}"
-                            >
+                {{range .Categories}}
 
-                            <label for="category-{{.ID}}">
-                                {{.Name}}
-                            </label>
-                        </div>
-                    {{end}}
-                </fieldset>
+                    <div>
+                        <input
+                            id="category-{{.ID}}"
+                            name="category"
+                            type="checkbox"
+                            value="{{.ID}}"
+                        >
 
-                <button type="submit">
-                    Create post
-                </button>
-            </form>
-        </section>
-    </main>
+                        <label for="category-{{.ID}}">
+                            {{.Name}}
+                        </label>
+                    </div>
+
+                {{end}}
+
+            </fieldset>
+
+            <button type="submit">
+                Publish post
+            </button>
+
+        </form>
+
+    </section>
+
+</main>
+
 </body>
 </html>

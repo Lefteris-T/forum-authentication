@@ -1,141 +1,597 @@
 * {
-	box-sizing: border-box;
+    box-sizing: border-box;
+}
+
+:root {
+    --bg: #f4f7fc;
+    --surface: rgba(255, 255, 255, 0.9);
+    --surface-solid: #ffffff;
+    --surface-soft: #f7f9fd;
+
+    --text: #172033;
+    --muted: #6b7280;
+
+    --primary: #2563eb;
+    --primary-dark: #1d4ed8;
+    --primary-soft: #eaf1ff;
+
+    --success: #16a34a;
+    --danger: #dc2626;
+
+    --border: rgba(148, 163, 184, 0.28);
+
+    --shadow:
+        0 12px 35px rgba(30, 64, 175, 0.08);
+
+    --radius: 18px;
+    --radius-small: 10px;
+}
+
+html {
+    min-height: 100%;
 }
 
 body {
-	margin: 0;
-	font-family: Arial, sans-serif;
-	line-height: 1.5;
-	background: #f5f5f5;
-	color: #222;
+    margin: 0;
+    min-height: 100vh;
+
+    font-family:
+        Inter,
+        ui-sans-serif,
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+
+    line-height: 1.55;
+
+    color: var(--text);
+
+    background:
+        linear-gradient(
+            rgba(246, 249, 255, 0.78),
+            rgba(246, 249, 255, 0.9)
+        ),
+        url("/static/forum-bg.png")
+        center top / cover fixed no-repeat;
 }
+
+/* ---------- links ---------- */
 
 a {
-	color: inherit;
+    color: inherit;
+    text-decoration: none;
 }
 
-header,
-main {
-	width: min(100% - 2rem, 900px);
-	margin-inline: auto;
+a:hover {
+    color: var(--primary);
 }
+
+/* ---------- global header ---------- */
 
 body > header {
-	padding-block: 1rem;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+
+    background: rgba(255, 255, 255, 0.82);
+    backdrop-filter: blur(14px);
+
+    border-bottom: 1px solid var(--border);
 }
 
-nav {
-	display: flex;
-	align-items: center;
-	gap: 1rem;
-	flex-wrap: wrap;
+body > header nav {
+    width: min(100% - 2rem, 1180px);
+    min-height: 70px;
+
+    margin-inline: auto;
+
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+}
+
+body > header nav > a:first-child {
+    margin-right: auto;
+
+    font-size: 1.2rem;
+    font-weight: 800;
+
+    color: var(--primary);
+}
+
+body > header nav > a:first-child::before {
+    content: "◯";
+    margin-right: 0.45rem;
+}
+
+body > header nav > a:not(:first-child) {
+    padding: 0.55rem 0.8rem;
+
+    border-radius: 9px;
+
+    font-size: 0.92rem;
+    font-weight: 600;
+}
+
+body > header nav > a:not(:first-child):hover {
+    background: var(--primary-soft);
 }
 
 nav form {
-	margin: 0;
+    margin: 0;
+    display: block;
 }
 
+/* ---------- page container ---------- */
+
 main {
-	padding-bottom: 3rem;
+    width: min(100% - 2rem, 1180px);
+    margin-inline: auto;
+
+    padding-block: 2.5rem 5rem;
 }
+
+/* ---------- hero ---------- */
+
+.page-hero {
+    min-height: 220px;
+
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+
+    padding: 2.6rem 3rem;
+
+    margin-bottom: 1.5rem;
+
+    border: 1px solid var(--border);
+    border-radius: 24px;
+
+    background:
+        linear-gradient(
+            100deg,
+            rgba(255, 255, 255, 0.97) 0%,
+            rgba(255, 255, 255, 0.86) 58%,
+            rgba(235, 243, 255, 0.66) 100%
+        );
+
+    box-shadow: var(--shadow);
+}
+
+.page-hero h1 {
+    margin: 0;
+
+    font-size: clamp(2.2rem, 5vw, 3.7rem);
+    line-height: 1;
+
+    letter-spacing: -0.04em;
+}
+
+.page-hero .subtitle {
+    margin: 0.9rem 0 0;
+
+    max-width: 580px;
+
+    font-size: 1.08rem;
+    color: var(--muted);
+}
+
+.user-greeting {
+    width: fit-content;
+
+    margin-top: 1rem;
+    padding: 0.45rem 0.75rem;
+
+    color: var(--primary-dark);
+    background: var(--primary-soft);
+
+    border-radius: 999px;
+
+    font-size: 0.9rem;
+}
+
+/* ---------- cards ---------- */
 
 section,
 article {
-	background: white;
-	padding: 1rem;
-	margin-block: 1rem;
-	border: 1px solid #ddd;
-	border-radius: 6px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+
+    background: var(--surface);
+
+    box-shadow: var(--shadow);
 }
 
-article article {
-	background: #fafafa;
+section {
+    padding: 1.25rem;
+    margin-block: 1.25rem;
+}
+
+article {
+    padding: 1.35rem;
+}
+
+section > h2:first-child {
+    margin-top: 0;
+}
+
+/* ---------- post feed ---------- */
+
+.posts-section {
+    background: rgba(255, 255, 255, 0.78);
+}
+
+.posts-section > h2 {
+    margin-bottom: 1.2rem;
+
+    font-size: 1.15rem;
+}
+
+.post-card {
+    margin-block: 0.75rem;
+
+    transition:
+        transform 0.18s ease,
+        box-shadow 0.18s ease,
+        border-color 0.18s ease;
+}
+
+.post-card:hover {
+    transform: translateY(-2px);
+
+    border-color: rgba(37, 99, 235, 0.28);
+
+    box-shadow:
+        0 18px 45px rgba(30, 64, 175, 0.11);
+}
+
+.post-card h3 {
+    margin: 0;
+
+    font-size: 1.12rem;
+}
+
+.post-card h3 a:hover {
+    color: var(--primary);
+}
+
+.post-meta {
+    margin: 0.35rem 0 0;
+
+    color: var(--muted);
+    font-size: 0.86rem;
+}
+
+.post-body {
+    margin-block: 1rem;
+
+    color: #374151;
+}
+
+/* ---------- category pills ---------- */
+
+.category-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+
+    padding: 0;
+    margin: 0.8rem 0;
+
+    list-style: none;
+}
+
+.category-list li {
+    margin: 0;
+}
+
+.category-list a {
+    display: inline-block;
+
+    padding: 0.3rem 0.65rem;
+
+    border-radius: 999px;
+
+    color: var(--primary-dark);
+    background: var(--primary-soft);
+
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.category-list a:hover {
+    color: white;
+    background: var(--primary);
+}
+
+/* ---------- post footer / reactions ---------- */
+
+article footer {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.8rem;
+
+    margin-top: 1rem;
+    padding-top: 1rem;
+
+    border-top: 1px solid var(--border);
+
+    color: var(--muted);
+    font-size: 0.88rem;
+}
+
+article footer form {
+    display: flex;
+    gap: 0.45rem;
+
+    margin-left: auto;
+}
+
+/* ---------- forms ---------- */
+
+.form-card {
+    width: min(100%, 760px);
+
+    margin: 2rem auto;
+
+    padding: 2rem;
+}
+
+.form-card.compact {
+    width: min(100%, 620px);
+}
+
+.form-card h1 {
+    margin-top: 0;
+
+    font-size: 2rem;
+}
+
+.form-card > p {
+    color: var(--muted);
 }
 
 form {
-	display: grid;
-	gap: 1rem;
+    display: grid;
+    gap: 1rem;
 }
 
 form div {
-	display: grid;
-	gap: 0.35rem;
+    display: grid;
+    gap: 0.4rem;
+}
+
+label,
+legend {
+    font-weight: 650;
+    font-size: 0.9rem;
 }
 
 input,
 textarea,
 button {
-	font: inherit;
+    font: inherit;
 }
 
 input,
 textarea {
-	width: 100%;
-	padding: 0.6rem;
-	border: 1px solid #aaa;
-	border-radius: 4px;
+    width: 100%;
+
+    padding: 0.8rem 0.9rem;
+
+    color: var(--text);
+    background: rgba(255, 255, 255, 0.94);
+
+    border: 1px solid #cbd5e1;
+    border-radius: var(--radius-small);
+
+    outline: none;
+
+    transition:
+        border-color 0.15s ease,
+        box-shadow 0.15s ease;
+}
+
+input:focus,
+textarea:focus {
+    border-color: var(--primary);
+
+    box-shadow:
+        0 0 0 4px rgba(37, 99, 235, 0.1);
 }
 
 textarea {
-	resize: vertical;
+    resize: vertical;
 }
+
+/* ---------- buttons ---------- */
 
 button {
-	padding: 0.6rem 1rem;
-	border: 1px solid #777;
-	border-radius: 4px;
-	cursor: pointer;
+    padding: 0.72rem 1rem;
+
+    border: 0;
+    border-radius: 9px;
+
+    color: white;
+    background: var(--primary);
+
+    font-weight: 700;
+
+    cursor: pointer;
+
+    transition:
+        background 0.15s ease,
+        transform 0.15s ease;
 }
 
+button:hover {
+    background: var(--primary-dark);
+    transform: translateY(-1px);
+}
+
+nav button {
+    padding: 0.55rem 0.8rem;
+
+    color: #475569;
+    background: transparent;
+}
+
+nav button:hover {
+    color: var(--danger);
+    background: #fff1f2;
+}
+
+.reaction-like {
+    color: var(--success);
+
+    background: #ecfdf3;
+}
+
+.reaction-like:hover {
+    color: white;
+    background: var(--success);
+}
+
+.reaction-dislike {
+    color: var(--danger);
+
+    background: #fff1f2;
+}
+
+.reaction-dislike:hover {
+    color: white;
+    background: var(--danger);
+}
+
+/* ---------- checkbox categories ---------- */
+
 fieldset {
-	border: 1px solid #ccc;
-	padding: 1rem;
+    padding: 1rem;
+
+    border: 1px solid var(--border);
+    border-radius: 12px;
+}
+
+fieldset legend {
+    padding-inline: 0.35rem;
 }
 
 fieldset div {
-	display: flex;
-	align-items: center;
-	gap: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+
+    margin-block: 0.3rem;
 }
 
 fieldset input[type="checkbox"] {
-	width: auto;
+    width: auto;
 }
 
-ul {
-	padding-left: 1.25rem;
+/* ---------- post detail ---------- */
+
+.post-detail {
+    padding: 2rem;
 }
 
-footer {
-	display: flex;
-	gap: 1rem;
-	align-items: center;
-	flex-wrap: wrap;
-	margin-top: 1rem;
+.post-detail h1 {
+    margin-top: 0;
+
+    font-size: clamp(2rem, 4vw, 2.8rem);
+    line-height: 1.15;
 }
+
+.comments-section {
+    margin-top: 1.5rem;
+}
+
+.comment-card {
+    margin-block: 0.8rem;
+
+    background: rgba(250, 252, 255, 0.94);
+
+    box-shadow: none;
+}
+
+/* ---------- alerts ---------- */
 
 [role="alert"] {
-	font-weight: bold;
+    padding: 0.8rem 1rem;
+
+    color: #991b1b;
+    background: #fff1f2;
+
+    border: 1px solid #fecdd3;
+    border-radius: 10px;
+
+    font-weight: 700;
 }
 
-@media (max-width: 600px) {
-	header,
-	main {
-		width: min(100% - 1rem, 900px);
-	}
+/* ---------- empty state ---------- */
 
-	nav {
-		align-items: flex-start;
-		flex-direction: column;
-	}
+.empty-state {
+    padding: 3rem 1rem;
 
-	section,
-	article {
-		padding: 0.75rem;
-	}
+    text-align: center;
 
-	footer {
-		align-items: flex-start;
-		flex-direction: column;
-	}
+    color: var(--muted);
+
+    border: 1px dashed #bfdbfe;
+    border-radius: var(--radius);
+
+    background: rgba(255, 255, 255, 0.75);
+}
+
+/* ---------- responsive ---------- */
+
+@media (max-width: 760px) {
+    body {
+        background-attachment: scroll;
+    }
+
+    body > header nav,
+    main {
+        width: min(100% - 1rem, 1180px);
+    }
+
+    body > header nav {
+        min-height: auto;
+
+        padding-block: 0.8rem;
+
+        flex-wrap: wrap;
+    }
+
+    body > header nav > a:first-child {
+        width: 100%;
+        margin-bottom: 0.3rem;
+    }
+
+    main {
+        padding-top: 1rem;
+    }
+
+    .page-hero {
+        min-height: auto;
+
+        padding: 2rem 1.4rem;
+    }
+
+    section,
+    article,
+    .form-card {
+        padding: 1rem;
+    }
+
+    article footer {
+        align-items: flex-start;
+    }
+
+    article footer form {
+        width: 100%;
+        margin-left: 0;
+    }
 }

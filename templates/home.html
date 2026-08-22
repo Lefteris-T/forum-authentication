@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="en">
+
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -10,79 +11,122 @@
 </head>
 
 <body>
-    <header>
-        <nav aria-label="Main navigation">
-            <a href="/">Forum</a>
 
-            {{if .CurrentUser}}
-                <a href="/posts/new">New post</a>
-                <a href="/?filter=created">My posts</a>
-                <a href="/?filter=liked">Liked posts</a>
+<header>
+    <nav aria-label="Main navigation">
+        <a href="/">Forum</a>
 
-                <form method="post" action="/logout">
-                    <button type="submit">Logout</button>
-                </form>
-            {{else}}
-                <a href="/login">Login</a>
-                <a href="/register">Register</a>
-            {{end}}
-        </nav>
+        {{if .CurrentUser}}
+            <a href="/posts/new">Create Post</a>
+            <a href="/?filter=created">My Posts</a>
+            <a href="/?filter=liked">Liked Posts</a>
+
+            <form method="post" action="/logout">
+                <button type="submit">Logout</button>
+            </form>
+        {{else}}
+            <a href="/login">Login</a>
+            <a href="/register">Register</a>
+        {{end}}
+    </nav>
+</header>
+
+<main>
+
+    <header class="page-hero">
+        <h1>Forum</h1>
+
+        <p class="subtitle">
+            Learn, build, and discuss.
+            Share ideas, solve problems, and grow together
+            through programming and technology.
+        </p>
+
+        {{if .CurrentUser}}
+            <p class="user-greeting">
+                Signed in as
+                <strong>{{.CurrentUser.Username}}</strong>
+            </p>
+        {{end}}
     </header>
 
-    <main>
-        <header>
-            <h1>Forum</h1>
+    {{if .Posts}}
 
-            {{if .CurrentUser}}
-                <p>
-                    Signed in as
-                    <strong>{{.CurrentUser.Username}}</strong>
-                </p>
+        <section
+            class="posts-section"
+            aria-labelledby="posts-title"
+        >
+            <h2 id="posts-title">
+                Latest discussions
+            </h2>
+
+            {{range .Posts}}
+
+                <article class="post-card">
+
+                    <header>
+                        <h3>
+                            <a href="/posts/{{.ID}}">
+                                {{.Title}}
+                            </a>
+                        </h3>
+
+                        <p class="post-meta">
+                            By
+                            <strong>{{.Author.Username}}</strong>
+                        </p>
+                    </header>
+
+                    <p class="post-body">
+                        {{.Body}}
+                    </p>
+
+                    {{if .Categories}}
+
+                        <ul
+                            class="category-list"
+                            aria-label="Post categories"
+                        >
+                            {{range .Categories}}
+                                <li>
+                                    <a href="/?category={{.ID}}">
+                                        {{.Name}}
+                                    </a>
+                                </li>
+                            {{end}}
+                        </ul>
+
+                    {{end}}
+
+                    <footer>
+                        <span>
+                            👍 {{.Likes}}
+                        </span>
+
+                        <span>
+                            👎 {{.Dislikes}}
+                        </span>
+                    </footer>
+
+                </article>
+
             {{end}}
-        </header>
+        </section>
 
-        {{if .Posts}}
-            <section aria-labelledby="posts-title">
-                <h2 id="posts-title">Posts</h2>
+    {{else}}
 
-                {{range .Posts}}
-                    <article>
-                        <header>
-                            <h3>
-                                <a href="/posts/{{.ID}}">
-                                    {{.Title}}
-                                </a>
-                            </h3>
+        <div class="empty-state">
+            <h2>No posts yet</h2>
 
-                            <p>
-                                By {{.Author.Username}}
-                            </p>
-                        </header>
+            <p>
+                The forum is quiet for now.
+                Start the first discussion.
+            </p>
+        </div>
 
-                        <p>{{.Body}}</p>
+    {{end}}
 
-                        {{if .Categories}}
-                            <ul aria-label="Post categories">
-                                {{range .Categories}}
-                                    <li>
-                                        <a href="/?category={{.ID}}">
-                                            {{.Name}}
-                                        </a>
-                                    </li>
-                                {{end}}
-                            </ul>
-                        {{end}}
+</main>
 
-                        <footer>
-                            <span>Likes: {{.Likes}}</span>
-                            <span>Dislikes: {{.Dislikes}}</span>
-                        </footer>
-                    </article>
-                {{end}}
-            </section>
-        {{else}}
-            <p>No posts yet.</p>
-        {{end}}
-    </main>
 </body>
 </html>
