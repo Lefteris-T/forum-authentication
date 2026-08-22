@@ -23,6 +23,10 @@ type PostReader interface {
 		authorID int64,
 	) ([]repository.PostListItem, error)
 
+	ListLikedByUser(
+		userID int64,
+	) ([]repository.PostListItem, error)
+
 	Detail(id int64) (repository.PostDetail, error)
 }
 
@@ -80,6 +84,19 @@ func (h *HomeHandler) ServeHTTP(
 		}
 
 		posts, err = h.posts.ListByAuthor(user.ID)
+
+	case filterValue == "liked":
+		user, ok := middleware.CurrentUser(r.Context())
+		if !ok {
+			http.Error(
+				w,
+				http.StatusText(http.StatusUnauthorized),
+				http.StatusUnauthorized,
+			)
+			return
+		}
+
+		posts, err = h.posts.ListLikedByUser(user.ID)
 
 	case categoryValue != "":
 		categoryID, parseErr := strconv.ParseInt(

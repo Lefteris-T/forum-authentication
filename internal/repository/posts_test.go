@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"forum/internal/database"
+	"forum/internal/model"
 )
 
 func TestPostRepositoryCreateWithOneCategory(t *testing.T) {
@@ -1102,6 +1103,248 @@ func TestPostRepositoryListByAuthorReturnsOnlyOwnPosts(t *testing.T) {
 		t.Fatalf(
 			"category count = %d, want 2",
 			len(got[0].Categories),
+		)
+	}
+}
+func TestPostRepositoryListLikedByUserReturnsOnlyActiveLikes(t *testing.T) {
+	dbPath := filepath.Join(
+		t.TempDir(),
+		"forum.db",
+	)
+
+	db, err := database.Open(dbPath)
+	if err != nil {
+		t.Fatalf("database.Open(): %v", err)
+	}
+	defer db.Close()
+
+	err = database.Migrate(
+		db,
+		filepath.Join("..", "..", "migrations"),
+	)
+	if err != nil {
+		t.Fatalf("database.Migrate(): %v", err)
+	}
+
+	users := NewUserRepository(db)
+
+	authorID, err := users.Create(
+		"author@example.com",
+		"author",
+		"password-hash",
+	)
+	if err != nil {
+		t.Fatalf("create author: %v", err)
+	}
+
+	userAID, err := users.Create(
+		"a@example.com",
+		"userA",
+		"password-hash",
+	)
+	if err != nil {
+		t.Fatalf("create user A: %v", err)
+	}
+
+	userBID, err := users.Create(
+		"b@example.com",
+		"userB",
+		"password-hash",
+	)
+	if err != nil {
+		t.Fatalf("create user B: %v", err)
+	}
+
+	posts := NewPostRepository(db)
+
+	likedPostID, err := posts.Create(
+		authorID,
+		"Liked post",
+		"Body",
+		[]int64{1, 2},
+	)
+	if err != nil {
+		t.Fatalf("create liked post: %v", err)
+	}
+
+	dislikedPostID, err := posts.Create(
+		authorID,
+		"Disliked post",
+		"Body",
+		[]int64{4},
+	)
+	if err != nil {
+		t.Fatalf("create disliked post: %v", err)
+	}
+
+	otherUserLikedPostID, err := posts.Create(
+		authorID,
+		"Other user's liked post",
+		"Body",
+		[]int64{2},
+	)
+	if err != nil {
+		t.Fatalf("create other user liked post: %v", err)
+	}
+
+	reactions := NewReactionRepository(db)
+
+	err = reactions.SetPostReaction(
+		userAID,
+		likedPostID,
+		model.ReactionLike,
+	)
+	if err != nil {
+		t.Fatalf("user A like: %v", err)
+	}
+
+	err = reactions.SetPostReaction(
+		userAID,
+		dislikedPostID,
+		model.ReactionDislike,
+	)
+	if err != nil {
+		t.Fatalf("user A dislike: %v", err)
+	}
+
+	err = reactions.SetPostReaction(
+		userBID,
+		otherUserLikedPostID,
+		model.ReactionLike,
+	)
+	if err != nil {
+		t.Fatalf("user B like: %v", err)
+	}
+
+	got, err := posts.ListLikedByUser(userAID)
+	if err != nil {
+		t.Fatalf("ListLikedByUser(): %v", err)
+	}
+
+	if len(got) != 1 {
+		t.Fatalf(
+			"len(posts) = %d, want 1",
+			len(got),
+		)
+	}
+
+	if got[0].ID != likedPostID {
+		t.Fatalf(
+			"post ID = %d, want %d",
+			got[0].ID,
+			likedPostID,
+		)
+	}
+
+	if got[0].ID == dislikedPostID {
+		t.Fatal("disliked post was returned")
+	}
+
+	if got[0].ID == otherUserLikedPostID {
+		t.Fatal("another user's liked post was returned")
+	}
+
+	if len(got[0].Categories) != 2 {
+		t.Fatalf(
+			"category count = %d, want 2",
+			len(got[0].Categories),
+		)
+	}
+}
+func TestPostRepositoryListLikedByUserExcludesRemovedLike(t *testing.T) {
+	dbPath := filepath.Join(
+		t.TempDir(),
+		"forum.db",
+	)
+
+	db, err := database.Open(dbPath)
+	if err != nil {
+		t.Fatalf("database.Open(): %v", err)
+	}
+	defer db.Close()
+
+	err = database.Migrate(
+		db,
+		filepath.Join("..", "..", "migrations"),
+	)
+	if err != nil {
+		t.Fatalf("database.Migrate(): %v", err)
+	}
+
+	users := NewUserRepository(db)
+
+	authorID, err := users.Create(
+		"author@example.com",
+		"author",
+		"password-hash",
+	)
+	if err != nil {
+		t.Fatalf("create author: %v", err)
+	}
+
+	userID, err := users.Create(
+		"user@example.com",
+		"user",
+		"password-hash",
+	)
+	if err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+
+	posts := NewPostRepository(db)
+
+	postID, err := posts.Create(
+		authorID,
+		"Temporarily liked",
+		"Body",
+		[]int64{1},
+	)
+	if err != nil {
+		t.Fatalf("create post: %v", err)
+	}
+
+	reactions := NewReactionRepository(db)
+
+	err = reactions.SetPostReaction(
+		userID,
+		postID,
+		model.ReactionLike,
+	)
+	if err != nil {
+		t.Fatalf("set like: %v", err)
+	}
+
+	got, err := posts.ListLikedByUser(userID)
+	if err != nil {
+		t.Fatalf("ListLikedByUser() after like: %v", err)
+	}
+
+	if len(got) != 1 {
+		t.Fatalf(
+			"liked post count = %d, want 1",
+			len(got),
+		)
+	}
+
+	// Same reaction again = toggle off.
+	err = reactions.SetPostReaction(
+		userID,
+		postID,
+		model.ReactionLike,
+	)
+	if err != nil {
+		t.Fatalf("remove like: %v", err)
+	}
+
+	got, err = posts.ListLikedByUser(userID)
+	if err != nil {
+		t.Fatalf("ListLikedByUser() after removal: %v", err)
+	}
+
+	if len(got) != 0 {
+		t.Fatalf(
+			"liked post count = %d, want 0 after removed like",
+			len(got),
 		)
 	}
 }

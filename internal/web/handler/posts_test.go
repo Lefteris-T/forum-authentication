@@ -34,6 +34,17 @@ type fakePostReader struct {
 	authorPosts   []repository.PostListItem
 	authorErr     error
 	authorID      int64
+	likedPosts    []repository.PostListItem
+	likedErr      error
+	likedUserID   int64
+}
+
+func (f *fakePostReader) ListLikedByUser(
+	userID int64,
+) ([]repository.PostListItem, error) {
+	f.likedUserID = userID
+
+	return f.likedPosts, f.likedErr
 }
 
 func (f *fakePostReader) ListByAuthor(
@@ -1103,6 +1114,114 @@ func TestHomeHandlerRejectsGuestCreatedFilter(t *testing.T) {
 	req := httptest.NewRequest(
 		http.MethodGet,
 		"/?filter=created",
+		nil,
+	)
+
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf(
+			"status = %d, want %d",
+			rec.Code,
+			http.StatusUnauthorized,
+		)
+	}
+}
+func TestHomeHandlerFiltersLikedPostsForCurrentUser(t *testing.T) {
+	dir := t.TempDir()
+
+	err := os.WriteFile(
+		filepath.Join(dir, "home.html"),
+		[]byte(`
+			<!doctype html>
+			<html>
+			<body>
+				{{range .Posts}}
+					<h2>{{.Title}}</h2>
+				{{end}}
+			</body>
+			</html>
+		`),
+		0o644,
+	)
+	if err != nil {
+		t.Fatalf("WriteFile(): %v", err)
+	}
+
+	renderer, err := view.NewRenderer(dir)
+	if err != nil {
+		t.Fatalf("NewRenderer(): %v", err)
+	}
+
+	posts := &fakePostReader{
+		likedPosts: []repository.PostListItem{
+			{
+				ID:    10,
+				Title: "Liked post",
+			},
+		},
+	}
+
+	h := NewHomeHandler(
+		posts,
+		renderer,
+	)
+
+	req := httptest.NewRequest(
+		http.MethodGet,
+		"/?filter=liked",
+		nil,
+	)
+
+	ctx := middleware.ContextWithUser(
+		req.Context(),
+		model.User{
+			ID:       42,
+			Username: "lefteris",
+		},
+	)
+
+	req = req.WithContext(ctx)
+
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf(
+			"status = %d, want %d",
+			rec.Code,
+			http.StatusOK,
+		)
+	}
+
+	if posts.likedUserID != 42 {
+		t.Fatalf(
+			"liked user ID = %d, want 42",
+			posts.likedUserID,
+		)
+	}
+
+	if !strings.Contains(
+		rec.Body.String(),
+		"Liked post",
+	) {
+		t.Fatal("liked post was not rendered")
+	}
+}
+func TestHomeHandlerRejectsGuestLikedFilter(t *testing.T) {
+	posts := &fakePostReader{}
+
+	h := NewHomeHandler(
+		posts,
+		nil,
+	)
+
+	req := httptest.NewRequest(
+		http.MethodGet,
+		"/?filter=liked",
 		nil,
 	)
 
