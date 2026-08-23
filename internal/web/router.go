@@ -1,3 +1,4 @@
+// Package web defines routing and the application-wide middleware chain.
 package web
 
 import (
@@ -7,12 +8,14 @@ import (
 	"strings"
 )
 
+// Route pairs a path pattern with its allowed methods and handler.
 type Route struct {
 	Methods []string
 	Pattern string
 	Handler http.Handler
 }
 
+// Handlers groups constructed endpoints for router assembly.
 type Handlers struct {
 	Home            http.Handler
 	Register        http.Handler
@@ -26,6 +29,7 @@ type Handlers struct {
 	Static          http.Handler
 }
 
+// NewRouter centralizes method enforcement and Allow-header responses.
 func NewRouter(routes []Route) http.Handler {
 	mux := http.NewServeMux()
 
@@ -81,6 +85,7 @@ func writeError(
 	)
 }
 
+// NewForumRouter declares every public and protected forum route.
 func NewForumRouter(h Handlers) http.Handler {
 	return NewRouter([]Route{
 		{
@@ -159,6 +164,8 @@ func postRoutes(
 	commentCreate http.Handler,
 	postReaction http.Handler,
 ) http.Handler {
+	// Dynamic post paths are parsed here so individual handlers receive a
+	// consistent resource URL without duplicating route-shape checks.
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := strings.TrimPrefix(r.URL.Path, "/posts/")
 		parts := strings.Split(path, "/")
@@ -219,6 +226,9 @@ func commentRoutes(
 		}
 	})
 }
+
+// WithMiddleware applies recovery inside request logging so even recovered
+// panics receive a status and log entry.
 func WithMiddleware(
 	logger *log.Logger,
 	next http.Handler,

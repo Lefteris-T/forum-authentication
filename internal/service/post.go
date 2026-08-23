@@ -6,6 +6,7 @@ import (
 	"forum/internal/validation"
 )
 
+// ErrAuthenticationRequired is shared by protected content operations.
 var ErrAuthenticationRequired = errors.New("authentication required")
 
 type PostCreator interface {
@@ -17,6 +18,7 @@ type PostCreator interface {
 	) (int64, error)
 }
 
+// PostService validates post creation before delegating persistence.
 type PostService struct {
 	posts PostCreator
 }
@@ -29,6 +31,7 @@ func NewPostService(
 	}
 }
 
+// Create requires an authenticated author and validated post input.
 func (s *PostService) Create(
 	authorID int64,
 	input validation.PostInput,

@@ -1,3 +1,4 @@
+// Package validation normalizes untrusted input and enforces size/content rules.
 package validation
 
 import (
@@ -13,17 +14,21 @@ const (
 	maxPasswordLength = 72
 )
 
+// RegistrationInput is raw account-creation form data.
 type RegistrationInput struct {
 	Email    string
 	Username string
 	Password string
 }
 
+// LoginInput is raw credential form data.
 type LoginInput struct {
 	Email    string
 	Password string
 }
 
+// ValidateRegistration returns normalized email and username values while
+// preserving the password exactly as submitted for bcrypt comparison.
 func ValidateRegistration(input RegistrationInput) (RegistrationInput, error) {
 	email := strings.ToLower(strings.TrimSpace(input.Email))
 	username := strings.TrimSpace(input.Username)
@@ -78,6 +83,8 @@ func ValidateRegistration(input RegistrationInput) (RegistrationInput, error) {
 		Password: input.Password,
 	}, nil
 }
+
+// ValidateLogin normalizes the email and applies safe input-size limits.
 func ValidateLogin(input LoginInput) (LoginInput, error) {
 	email := strings.ToLower(strings.TrimSpace(input.Email))
 

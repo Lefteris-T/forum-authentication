@@ -11,6 +11,7 @@ import (
 	"forum/internal/web/middleware"
 )
 
+// CommentService is the comment write behavior required by this handler.
 type CommentService interface {
 	Create(
 		authorID int64,
@@ -19,10 +20,12 @@ type CommentService interface {
 	) (int64, error)
 }
 
+// CommentSubmissionHandler processes authenticated comment form submissions.
 type CommentSubmissionHandler struct {
 	service CommentService
 }
 
+// NewCommentSubmissionHandler constructs comment-submission HTTP behavior.
 func NewCommentSubmissionHandler(
 	service CommentService,
 ) *CommentSubmissionHandler {
@@ -31,6 +34,8 @@ func NewCommentSubmissionHandler(
 	}
 }
 
+// ServeHTTP validates route/form identifiers before calling the service and
+// redirects to the parent post on success.
 func (h *CommentSubmissionHandler) ServeHTTP(
 	w http.ResponseWriter,
 	r *http.Request,

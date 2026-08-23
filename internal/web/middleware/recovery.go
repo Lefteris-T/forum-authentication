@@ -5,6 +5,8 @@ import (
 	"net/http"
 )
 
+// Recovery converts handler panics into a generic 500 response while retaining
+// diagnostic information in server logs.
 func Recovery(
 	logger *log.Logger,
 	next http.Handler,

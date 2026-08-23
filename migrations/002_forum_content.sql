@@ -1,3 +1,4 @@
+-- Core forum content. Cascading foreign keys prevent orphaned dependent rows.
 CREATE TABLE posts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     author_id INTEGER NOT NULL,
@@ -26,11 +27,13 @@ CREATE TABLE comments (
         ON DELETE CASCADE
 );
 
+-- Categories are shared labels rather than duplicated text on every post.
 CREATE TABLE categories (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE
 );
 
+-- The composite key models many-to-many membership and prevents duplicates.
 CREATE TABLE post_categories (
     post_id INTEGER NOT NULL,
     category_id INTEGER NOT NULL,
@@ -46,6 +49,7 @@ CREATE TABLE post_categories (
         ON DELETE CASCADE
 );
 
+-- A reaction is 1 (like) or -1 (dislike), with one row per user and post.
 CREATE TABLE post_reactions (
     user_id INTEGER NOT NULL,
     post_id INTEGER NOT NULL,
@@ -62,6 +66,7 @@ CREATE TABLE post_reactions (
         ON DELETE CASCADE
 );
 
+-- Comment reactions follow the same one-reaction-per-target invariant.
 CREATE TABLE comment_reactions (
     user_id INTEGER NOT NULL,
     comment_id INTEGER NOT NULL,

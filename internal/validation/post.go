@@ -19,12 +19,14 @@ var (
 	ErrPostDuplicateCategory = errors.New("duplicate category")
 )
 
+// PostInput contains untrusted post form values.
 type PostInput struct {
 	Title       string
 	Body        string
 	CategoryIDs []int64
 }
 
+// ValidatePost trims text and requires at least one unique category.
 func ValidatePost(input PostInput) (PostInput, error) {
 	input.Title = strings.TrimSpace(input.Title)
 	input.Body = strings.TrimSpace(input.Body)

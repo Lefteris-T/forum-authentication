@@ -2,11 +2,13 @@ package handler
 
 import "net/http"
 
+// LogoutHandler removes both server-side and browser session state.
 type LogoutHandler struct {
 	service  LoginService
 	sessions SessionManager
 }
 
+// NewLogoutHandler constructs logout HTTP behavior.
 func NewLogoutHandler(
 	service LoginService,
 	sessions SessionManager,
@@ -17,6 +19,7 @@ func NewLogoutHandler(
 	}
 }
 
+// ServeHTTP is POST-only so navigation and crawlers cannot mutate sessions.
 func (h *LogoutHandler) ServeHTTP(
 	w http.ResponseWriter,
 	r *http.Request,

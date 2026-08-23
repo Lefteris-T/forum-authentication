@@ -12,6 +12,7 @@ import (
 	"forum/internal/web/middleware"
 )
 
+// PostReactionService applies the post reaction state transition.
 type PostReactionService interface {
 	SetPostReaction(
 		userID int64,
@@ -20,10 +21,12 @@ type PostReactionService interface {
 	) error
 }
 
+// PostReactionHandler handles authenticated like/dislike submissions for posts.
 type PostReactionHandler struct {
 	service PostReactionService
 }
 
+// NewPostReactionHandler constructs post-reaction HTTP behavior.
 func NewPostReactionHandler(
 	service PostReactionService,
 ) *PostReactionHandler {
@@ -32,6 +35,7 @@ func NewPostReactionHandler(
 	}
 }
 
+// ServeHTTP accepts only valid POST form values and redirects after mutation.
 func (h *PostReactionHandler) ServeHTTP(
 	w http.ResponseWriter,
 	r *http.Request,

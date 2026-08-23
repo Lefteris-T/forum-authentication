@@ -10,6 +10,7 @@ import (
 	"forum/internal/web/view"
 )
 
+// PostCreationService is the validated post write required by the handler.
 type PostCreationService interface {
 	Create(
 		authorID int64,
@@ -17,10 +18,12 @@ type PostCreationService interface {
 	) (int64, error)
 }
 
+// CategoryReader supplies choices and validates submitted category identifiers.
 type CategoryReader interface {
 	All() ([]model.Category, error)
 }
 
+// PostCreationHandler renders the protected form and processes submissions.
 type PostCreationHandler struct {
 	service    PostCreationService
 	categories CategoryReader
@@ -32,6 +35,7 @@ type newPostPageData struct {
 	CurrentUser *model.User
 }
 
+// NewPostCreationHandler constructs post-creation HTTP behavior.
 func NewPostCreationHandler(
 	service PostCreationService,
 	categories CategoryReader,
@@ -44,6 +48,7 @@ func NewPostCreationHandler(
 	}
 }
 
+// ServeHTTP requires a current user for both viewing and submitting the form.
 func (h *PostCreationHandler) ServeHTTP(
 	w http.ResponseWriter,
 	r *http.Request,

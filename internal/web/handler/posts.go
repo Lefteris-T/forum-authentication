@@ -12,6 +12,7 @@ import (
 	"forum/internal/web/view"
 )
 
+// PostReader provides the public and current-user-specific forum read models.
 type PostReader interface {
 	List() ([]repository.PostListItem, error)
 
@@ -30,6 +31,7 @@ type PostReader interface {
 	Detail(id int64) (repository.PostDetail, error)
 }
 
+// HomeHandler lists posts and applies category, created, or liked filters.
 type HomeHandler struct {
 	posts    PostReader
 	renderer *view.Renderer
@@ -40,6 +42,7 @@ type homePageData struct {
 	CurrentUser *model.User
 }
 
+// NewHomeHandler constructs the forum listing endpoint.
 func NewHomeHandler(
 	posts PostReader,
 	renderer *view.Renderer,
@@ -50,6 +53,8 @@ func NewHomeHandler(
 	}
 }
 
+// ServeHTTP keeps category filtering public while requiring authentication for
+// the created and liked filters.
 func (h *HomeHandler) ServeHTTP(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -159,6 +164,7 @@ func (h *HomeHandler) ServeHTTP(
 	}
 }
 
+// PostDetailHandler renders one public post with comments and reaction counts.
 type PostDetailHandler struct {
 	posts    PostReader
 	renderer *view.Renderer
@@ -169,6 +175,7 @@ type postDetailPageData struct {
 	CurrentUser *model.User
 }
 
+// NewPostDetailHandler constructs the post-detail endpoint.
 func NewPostDetailHandler(
 	posts PostReader,
 	renderer *view.Renderer,
@@ -179,6 +186,7 @@ func NewPostDetailHandler(
 	}
 }
 
+// ServeHTTP validates the resource identifier and maps missing posts to 404.
 func (h *PostDetailHandler) ServeHTTP(
 	w http.ResponseWriter,
 	r *http.Request,

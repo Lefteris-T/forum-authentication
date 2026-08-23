@@ -10,18 +10,21 @@ import (
 	"forum/internal/web/view"
 )
 
+// LoginService exposes credential verification and session lifecycle behavior.
 type LoginService interface {
 	Login(input validation.LoginInput) (model.User, error)
 	CreateSession(id string, userID int64) error
 	Logout(id string) error
 }
 
+// SessionManager isolates cookie mechanics from login orchestration.
 type SessionManager interface {
 	Create(w http.ResponseWriter) (string, error)
 	Read(r *http.Request) (string, bool)
 	Clear(w http.ResponseWriter)
 }
 
+// LoginHandler serves login and creates matching cookie/database sessions.
 type LoginHandler struct {
 	service  LoginService
 	sessions SessionManager
@@ -33,6 +36,7 @@ type loginPageData struct {
 	Error string
 }
 
+// NewLoginHandler constructs login HTTP behavior.
 func NewLoginHandler(
 	service LoginService,
 	sessions SessionManager,
@@ -45,6 +49,8 @@ func NewLoginHandler(
 	}
 }
 
+// ServeHTTP gives unknown emails and wrong passwords the same unauthorized
+// response, preventing account enumeration.
 func (h *LoginHandler) ServeHTTP(
 	w http.ResponseWriter,
 	r *http.Request,

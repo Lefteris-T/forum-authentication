@@ -5,6 +5,7 @@ import (
 	"strings"
 )
 
+// MaxCommentBodyLength limits storage and rendered page size.
 const MaxCommentBodyLength = 2000
 
 var (
@@ -12,10 +13,12 @@ var (
 	ErrCommentBodyTooLong  = errors.New("comment body is too long")
 )
 
+// CommentInput contains an untrusted comment body.
 type CommentInput struct {
 	Body string
 }
 
+// ValidateComment trims surrounding whitespace and rejects empty or long text.
 func ValidateComment(input CommentInput) (CommentInput, error) {
 	input.Body = strings.TrimSpace(input.Body)
 

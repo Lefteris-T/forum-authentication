@@ -7,10 +7,12 @@ import (
 	"forum/internal/model"
 )
 
+// ReactionRepository applies like/dislike state transitions transactionally.
 type ReactionRepository struct {
 	db *sql.DB
 }
 
+// NewReactionRepository binds reaction operations to db.
 func NewReactionRepository(
 	db *sql.DB,
 ) *ReactionRepository {
@@ -19,6 +21,8 @@ func NewReactionRepository(
 	}
 }
 
+// SetPostReaction toggles an identical reaction off or switches an opposite
+// reaction in one transaction after confirming that the post exists.
 func (r *ReactionRepository) SetPostReaction(
 	userID int64,
 	postID int64,
@@ -84,6 +88,7 @@ func (r *ReactionRepository) SetPostReaction(
 	return tx.Commit()
 }
 
+// SetCommentReaction applies the same transition rules to a comment.
 func (r *ReactionRepository) SetCommentReaction(
 	userID int64,
 	commentID int64,
@@ -159,6 +164,9 @@ func applyReactionTransition(
 	deleteQuery string,
 	updateQuery string,
 ) error {
+	// No row means insert, the same value means delete, and the opposite value
+	// means update. This shared state machine keeps post and comment behavior
+	// identical.
 	var currentValue int
 
 	err := tx.QueryRow(

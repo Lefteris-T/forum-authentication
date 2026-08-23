@@ -1,3 +1,4 @@
+// Package database opens SQLite and applies versioned schema migrations.
 package database
 
 import (
@@ -8,6 +9,8 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
+// Open creates a verified SQLite pool. Enabling foreign keys in the DSN makes
+// the setting apply to every connection opened by database/sql.
 func Open(path string) (*sql.DB, error) {
 	if strings.TrimSpace(path) == "" {
 		return nil, fmt.Errorf("database path cannot be empty")

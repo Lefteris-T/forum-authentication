@@ -8,8 +8,10 @@ import (
 	"time"
 )
 
+// ErrPostNotFound lets HTTP handlers return 404 without inspecting SQL errors.
 var ErrPostNotFound = errors.New("post not found")
 
+// PostListItem is the read model needed by listing and filtering pages.
 type PostListItem struct {
 	ID         int64
 	Title      string
@@ -21,6 +23,7 @@ type PostListItem struct {
 	Dislikes   int
 }
 
+// CommentView combines comment data with author and reaction totals.
 type CommentView struct {
 	ID        int64
 	PostID    int64
@@ -31,6 +34,7 @@ type CommentView struct {
 	Dislikes  int
 }
 
+// PostDetail is the complete read model for one post page.
 type PostDetail struct {
 	ID         int64
 	Title      string
@@ -43,16 +47,20 @@ type PostDetail struct {
 	Comments   []CommentView
 }
 
+// PostRepository owns post writes and the composed queries used by forum views.
 type PostRepository struct {
 	db *sql.DB
 }
 
+// NewPostRepository binds post operations to db.
 func NewPostRepository(db *sql.DB) *PostRepository {
 	return &PostRepository{
 		db: db,
 	}
 }
 
+// Create stores the post and all category links atomically, preventing a
+// partially created post when one category insertion fails.
 func (r *PostRepository) Create(
 	authorID int64,
 	title string,
@@ -112,6 +120,8 @@ func (r *PostRepository) Create(
 
 	return postID, nil
 }
+
+// List returns every post with author, category, and reaction information.
 func (r *PostRepository) List() ([]PostListItem, error) {
 	rows, err := r.db.Query(`
 		SELECT
@@ -310,6 +320,7 @@ func (r *PostRepository) categoriesForPosts(
 	return result, nil
 }
 
+// Detail returns one post and its public comments, or ErrPostNotFound.
 func (r *PostRepository) Detail(
 	postID int64,
 ) (PostDetail, error) {
@@ -475,6 +486,8 @@ func (r *PostRepository) commentsForPost(
 
 	return comments, nil
 }
+
+// ListByCategory returns posts carrying one validated category.
 func (r *PostRepository) ListByCategory(
 	categoryID int64,
 ) ([]PostListItem, error) {
@@ -585,6 +598,8 @@ func (r *PostRepository) ListByCategory(
 
 	return posts, nil
 }
+
+// ListByAuthor powers the current user's "created posts" filter.
 func (r *PostRepository) ListByAuthor(
 	authorID int64,
 ) ([]PostListItem, error) {
@@ -677,6 +692,9 @@ func (r *PostRepository) ListByAuthor(
 
 	return posts, nil
 }
+
+// ListLikedByUser powers the current user's "liked posts" filter. The mine
+// join selects liked posts while all_pr independently counts all reactions.
 func (r *PostRepository) ListLikedByUser(
 	userID int64,
 ) ([]PostListItem, error) {

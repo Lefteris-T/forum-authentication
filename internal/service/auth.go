@@ -1,3 +1,4 @@
+// Package service enforces forum business rules independently of HTTP and SQL.
 package service
 
 import (
@@ -9,9 +10,11 @@ import (
 	"time"
 )
 
+// Validation errors let handlers distinguish bad input from internal failures.
 var ErrInvalidRegistration = errors.New("invalid registration")
 var ErrInvalidLogin = errors.New("invalid login")
 
+// UserCreator is the smallest persistence boundary required for registration.
 type UserCreator interface {
 	Create(
 		email string,
@@ -20,15 +23,18 @@ type UserCreator interface {
 	) (int64, error)
 }
 
+// PasswordHasher keeps bcrypt details outside registration orchestration.
 type PasswordHasher interface {
 	Hash(password string) (string, error)
 }
 
+// AuthService validates identities, hashes passwords, and creates users.
 type AuthService struct {
 	users     UserCreator
 	passwords PasswordHasher
 }
 
+// NewAuthService constructs registration behavior from replaceable boundaries.
 func NewAuthService(
 	users UserCreator,
 	passwords PasswordHasher,
@@ -39,6 +45,7 @@ func NewAuthService(
 	}
 }
 
+// Register normalizes and validates input before any value is persisted.
 func (s *AuthService) Register(
 	input validation.RegistrationInput,
 ) (int64, error) {
@@ -63,8 +70,12 @@ func (s *AuthService) Register(
 	)
 }
 
+// ErrInvalidCredentials deliberately covers both unknown users and bad
+// passwords so callers cannot reveal whether an email is registered.
 var ErrInvalidCredentials = errors.New("invalid credentials")
 
+// Comparing against a real-format dummy hash reduces timing differences when
+// the submitted email does not exist.
 const dummyPasswordHash = "$2a$10$7EqJtq98hPqEX7fNZaFWoO5xDBmIf6M1q3P0RHFN6GmlCaypVH7De"
 
 type UserFinder interface {
@@ -85,6 +96,7 @@ type SessionStore interface {
 	Delete(id string) error
 }
 
+// LoginService verifies credentials and owns the session lifecycle rules.
 type LoginService struct {
 	users           UserFinder
 	passwords       PasswordComparer
@@ -106,6 +118,7 @@ func NewLoginService(
 	}
 }
 
+// Login returns the same public failure for an unknown email and wrong password.
 func (s *LoginService) Login(
 	input validation.LoginInput,
 ) (model.User, error) {
@@ -142,6 +155,7 @@ func (s *LoginService) Login(
 	return user, nil
 }
 
+// CreateSession calculates server-side expiry and replaces any prior session.
 func (s *LoginService) CreateSession(
 	id string,
 	userID int64,
@@ -157,6 +171,7 @@ func (s *LoginService) CreateSession(
 	)
 }
 
+// Logout invalidates the server-side record for id.
 func (s *LoginService) Logout(id string) error {
 	return s.sessions.Delete(id)
 }

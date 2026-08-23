@@ -1,3 +1,4 @@
+// Package app wires infrastructure, services, handlers, and server lifecycle.
 package app
 
 import (
@@ -23,6 +24,8 @@ import (
 
 const shutdownTimeout = 5 * time.Second
 
+// Run starts the configured server and shuts it down when ctx is cancelled.
+// Startup and shutdown failures are returned to the command package.
 func Run(ctx context.Context, cfg config.Config) error {
 	appHandler, cleanup, err := buildHandler(cfg)
 	if err != nil {
@@ -69,7 +72,8 @@ func Run(ctx context.Context, cfg config.Config) error {
 func buildHandler(
 	cfg config.Config,
 ) (http.Handler, func(), error) {
-
+	// Build dependencies from the outside in: repositories feed services,
+	// services feed handlers, and handlers are mounted on the router.
 	databaseDir := filepath.Dir(cfg.DatabasePath)
 
 	if err := os.MkdirAll(databaseDir, 0755); err != nil {
@@ -86,6 +90,7 @@ func buildHandler(
 		)
 	}
 
+	// The caller owns this cleanup function once construction succeeds.
 	cleanup := func() {
 		db.Close()
 	}
@@ -198,6 +203,8 @@ func buildHandler(
 		comments,
 	)
 
+	// Routing describes HTTP shape only; business and persistence rules stay in
+	// their respective service and repository layers.
 	router := web.NewForumRouter(
 		web.Handlers{
 			Home:            homeHandler,
@@ -215,6 +222,8 @@ func buildHandler(
 		},
 	)
 
+	// Authentication runs before routing so all handlers receive the same
+	// request-scoped current-user behavior.
 	authenticate := middleware.NewAuthentication(
 		sessionManager,
 		sessions,
@@ -238,6 +247,7 @@ func buildHandler(
 }
 
 func normalizeServerError(err error) error {
+	// ErrServerClosed is expected during graceful shutdown.
 	if errors.Is(
 		err,
 		http.ErrServerClosed,
@@ -249,6 +259,7 @@ func normalizeServerError(err error) error {
 }
 
 func resolveProjectPath(name string) string {
+	// Package tests may run below the project root, unlike the built command.
 	if _, err := os.Stat(name); err == nil {
 		return name
 	}

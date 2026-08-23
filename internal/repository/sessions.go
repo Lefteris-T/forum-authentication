@@ -9,18 +9,23 @@ import (
 	"forum/internal/model"
 )
 
+// ErrSessionNotFound is returned without leaking database-specific errors.
 var ErrSessionNotFound = errors.New("session not found")
 
+// SessionRepository stores server-side session records.
 type SessionRepository struct {
 	db *sql.DB
 }
 
+// NewSessionRepository binds session operations to db.
 func NewSessionRepository(db *sql.DB) *SessionRepository {
 	return &SessionRepository{
 		db: db,
 	}
 }
 
+// Replace atomically removes a user's previous session and creates the new one,
+// enforcing the single-active-session rule across browser logins.
 func (r *SessionRepository) Replace(
 	id string,
 	userID int64,
@@ -66,6 +71,7 @@ func (r *SessionRepository) Replace(
 	return nil
 }
 
+// ByID resolves the server-side state associated with a session cookie.
 func (r *SessionRepository) ByID(id string) (model.Session, error) {
 	var session model.Session
 	var expiresAt string
@@ -108,6 +114,7 @@ func (r *SessionRepository) ByID(id string) (model.Session, error) {
 	return session, nil
 }
 
+// Delete invalidates one session during logout.
 func (r *SessionRepository) Delete(id string) error {
 	_, err := r.db.Exec(`
 		DELETE FROM sessions
@@ -120,6 +127,7 @@ func (r *SessionRepository) Delete(id string) error {
 	return nil
 }
 
+// DeleteExpired removes records that can no longer authenticate requests.
 func (r *SessionRepository) DeleteExpired(now time.Time) error {
 	_, err := r.db.Exec(`
 		DELETE FROM sessions

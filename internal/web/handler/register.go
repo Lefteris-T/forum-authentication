@@ -1,3 +1,5 @@
+// Package handler translates HTTP requests into validated service calls and
+// renders user-safe responses without containing SQL.
 package handler
 
 import (
@@ -11,10 +13,12 @@ import (
 	"forum/internal/web/view"
 )
 
+// RegistrationService is the account-creation behavior required by this handler.
 type RegistrationService interface {
 	Register(input validation.RegistrationInput) (int64, error)
 }
 
+// RegisterHandler serves the registration form and account submission.
 type RegisterHandler struct {
 	service  RegistrationService
 	renderer *view.Renderer
@@ -26,6 +30,7 @@ type registerPageData struct {
 	Error    string
 }
 
+// NewRegisterHandler constructs registration HTTP behavior.
 func NewRegisterHandler(
 	service RegistrationService,
 	renderer *view.Renderer,
@@ -36,6 +41,8 @@ func NewRegisterHandler(
 	}
 }
 
+// ServeHTTP renders GET requests and maps POST outcomes to audit-required status
+// codes without exposing persistence errors.
 func (h *RegisterHandler) ServeHTTP(
 	w http.ResponseWriter,
 	r *http.Request,

@@ -1,3 +1,4 @@
+// Package view parses and safely executes server-rendered HTML templates.
 package view
 
 import (
@@ -8,10 +9,12 @@ import (
 	"path/filepath"
 )
 
+// Renderer holds templates parsed once during application startup.
 type Renderer struct {
 	templates *template.Template
 }
 
+// NewRenderer fails startup when required templates cannot be parsed.
 func NewRenderer(dir string) (*Renderer, error) {
 	pattern := filepath.Join(dir, "*.html")
 
@@ -25,6 +28,7 @@ func NewRenderer(dir string) (*Renderer, error) {
 	}, nil
 }
 
+// Render writes a status before executing the named escaped HTML template.
 func (r *Renderer) Render(
 	w http.ResponseWriter,
 	status int,

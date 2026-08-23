@@ -1,3 +1,4 @@
+// Package repository contains parameterized SQLite persistence operations.
 package repository
 
 import (
@@ -13,16 +14,19 @@ var (
 	ErrDuplicateCategory = errors.New("duplicate category")
 )
 
+// CategoryRepository reads and validates the fixed category catalogue.
 type CategoryRepository struct {
 	db *sql.DB
 }
 
+// NewCategoryRepository binds category operations to db.
 func NewCategoryRepository(db *sql.DB) *CategoryRepository {
 	return &CategoryRepository{
 		db: db,
 	}
 }
 
+// All returns categories in stable name order for forms and filters.
 func (r *CategoryRepository) All() ([]model.Category, error) {
 	rows, err := r.db.Query(`
 		SELECT id, name
@@ -59,6 +63,8 @@ func (r *CategoryRepository) All() ([]model.Category, error) {
 	return categories, nil
 }
 
+// ValidateIDs confirms that every submitted category exists and rejects an
+// empty selection or repeated identifiers.
 func (r *CategoryRepository) ValidateIDs(
 	ids []int64,
 ) error {

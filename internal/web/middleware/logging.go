@@ -10,6 +10,7 @@ type statusWriter struct {
 	status int
 }
 
+// WriteHeader remembers the final status code for request logging.
 func (w *statusWriter) WriteHeader(status int) {
 	w.status = status
 	w.ResponseWriter.WriteHeader(status)
@@ -23,6 +24,7 @@ func (w *statusWriter) Write(body []byte) (int, error) {
 	return w.ResponseWriter.Write(body)
 }
 
+// RequestLogging records method, path, status, and elapsed request time.
 func RequestLogging(
 	logger *log.Logger,
 	next http.Handler,

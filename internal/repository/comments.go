@@ -7,18 +7,22 @@ import (
 	"time"
 )
 
+// CommentRepository stores comments and resolves their parent posts.
 type CommentRepository struct {
 	db *sql.DB
 }
 
+// NewCommentRepository binds comment operations to db.
 func NewCommentRepository(db *sql.DB) *CommentRepository {
 	return &CommentRepository{
 		db: db,
 	}
 }
 
+// ErrCommentNotFound allows upper layers to map absence without exposing SQL.
 var ErrCommentNotFound = errors.New("comment not found")
 
+// Create inserts a validated comment for an existing post and author.
 func (r *CommentRepository) Create(
 	postID int64,
 	authorID int64,
@@ -58,6 +62,7 @@ func (r *CommentRepository) Create(
 	return commentID, nil
 }
 
+// PostIDForComment resolves the redirect target after a comment reaction.
 func (r *CommentRepository) PostIDForComment(
 	commentID int64,
 ) (int64, error) {

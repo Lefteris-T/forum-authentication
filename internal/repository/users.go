@@ -11,21 +11,27 @@ import (
 )
 
 var (
+	// Identity errors are stable repository outcomes that services translate
+	// into user-safe registration or login responses.
 	ErrUserNotFound   = errors.New("user not found")
 	ErrEmailExists    = errors.New("email already exists")
 	ErrUsernameExists = errors.New("username already exists")
 )
 
+// UserRepository persists account identities and password hashes.
 type UserRepository struct {
 	db *sql.DB
 }
 
+// NewUserRepository binds user operations to db.
 func NewUserRepository(db *sql.DB) *UserRepository {
 	return &UserRepository{
 		db: db,
 	}
 }
 
+// Create stores a normalized identity and maps SQLite uniqueness failures to
+// domain-specific duplicate errors.
 func (r *UserRepository) Create(
 	email string,
 	username string,
@@ -57,6 +63,7 @@ func (r *UserRepository) Create(
 	return id, nil
 }
 
+// ByEmail retrieves the account used during credential verification.
 func (r *UserRepository) ByEmail(email string) (model.User, error) {
 	var user model.User
 	var createdAt string
@@ -95,6 +102,7 @@ func (r *UserRepository) ByEmail(email string) (model.User, error) {
 	return user, nil
 }
 
+// ByID resolves the current user referenced by a valid session.
 func (r *UserRepository) ByID(id int64) (model.User, error) {
 	var user model.User
 	var createdAt string

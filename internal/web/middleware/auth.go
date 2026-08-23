@@ -1,3 +1,4 @@
+// Package middleware handles cross-cutting HTTP concerns around every route.
 package middleware
 
 import (
@@ -12,6 +13,7 @@ type contextKey string
 
 const currentUserKey contextKey = "current-user"
 
+// SessionReader extracts a candidate session identifier from a request.
 type SessionReader interface {
 	Read(r *http.Request) (string, bool)
 }
@@ -24,6 +26,8 @@ type UserFinder interface {
 	ByID(id int64) (model.User, error)
 }
 
+// NewAuthentication resolves a valid, unexpired session into a current user.
+// Invalid cookies behave as guest requests and never expose repository errors.
 func NewAuthentication(
 	cookies SessionReader,
 	sessions SessionFinder,
@@ -70,6 +74,7 @@ func NewAuthentication(
 	}
 }
 
+// ContextWithUser attaches an authenticated user to a request context.
 func ContextWithUser(
 	ctx context.Context,
 	user model.User,
@@ -81,12 +86,14 @@ func ContextWithUser(
 	)
 }
 
+// CurrentUser retrieves the user installed by authentication middleware.
 func CurrentUser(ctx context.Context) (model.User, bool) {
 	user, ok := ctx.Value(currentUserKey).(model.User)
 
 	return user, ok
 }
 
+// RequireAuth rejects guest access before a protected handler runs.
 func RequireAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(
 		w http.ResponseWriter,

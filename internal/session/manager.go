@@ -1,3 +1,4 @@
+// Package session manages opaque authentication cookies.
 package session
 
 import (
@@ -7,12 +8,15 @@ import (
 	"github.com/google/uuid"
 )
 
+// Manager creates and validates cookie values; session ownership and expiry are
+// stored server-side in SQLite.
 type Manager struct {
 	cookieName string
 	duration   time.Duration
 	secure     bool
 }
 
+// NewManager configures cookie name, lifetime, and HTTPS-only behavior.
 func NewManager(
 	cookieName string,
 	duration time.Duration,
@@ -25,6 +29,7 @@ func NewManager(
 	}
 }
 
+// Create writes a hardened cookie and returns its UUID for server-side storage.
 func (m *Manager) Create(w http.ResponseWriter) (string, error) {
 	id := uuid.NewString()
 
@@ -41,6 +46,7 @@ func (m *Manager) Create(w http.ResponseWriter) (string, error) {
 	return id, nil
 }
 
+// Read accepts only a present, syntactically valid UUID cookie.
 func (m *Manager) Read(r *http.Request) (string, bool) {
 	cookie, err := r.Cookie(m.cookieName)
 	if err != nil {
@@ -54,6 +60,7 @@ func (m *Manager) Read(r *http.Request) (string, bool) {
 	return cookie.Value, true
 }
 
+// Clear expires the browser cookie during logout.
 func (m *Manager) Clear(w http.ResponseWriter) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     m.cookieName,

@@ -12,6 +12,7 @@ import (
 	"forum/internal/web/middleware"
 )
 
+// CommentReactionService applies the comment reaction state transition.
 type CommentReactionService interface {
 	SetCommentReaction(
 		userID int64,
@@ -20,17 +21,20 @@ type CommentReactionService interface {
 	) error
 }
 
+// CommentPostFinder resolves the parent post used for the success redirect.
 type CommentPostFinder interface {
 	PostIDForComment(
 		commentID int64,
 	) (int64, error)
 }
 
+// CommentReactionHandler handles authenticated reactions to comments.
 type CommentReactionHandler struct {
 	service  CommentReactionService
 	comments CommentPostFinder
 }
 
+// NewCommentReactionHandler constructs comment-reaction HTTP behavior.
 func NewCommentReactionHandler(
 	service CommentReactionService,
 	comments CommentPostFinder,
@@ -41,6 +45,7 @@ func NewCommentReactionHandler(
 	}
 }
 
+// ServeHTTP mutates the reaction and returns the browser to its parent post.
 func (h *CommentReactionHandler) ServeHTTP(
 	w http.ResponseWriter,
 	r *http.Request,

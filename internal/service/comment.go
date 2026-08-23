@@ -10,6 +10,7 @@ type CommentCreator interface {
 	) (int64, error)
 }
 
+// CommentService enforces authentication and validation for new comments.
 type CommentService struct {
 	comments CommentCreator
 }
@@ -22,6 +23,7 @@ func NewCommentService(
 	}
 }
 
+// Create rejects guest and empty-comment attempts before persistence.
 func (s *CommentService) Create(
 	authorID int64,
 	postID int64,

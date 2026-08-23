@@ -10,6 +10,8 @@ import (
 	"strings"
 )
 
+// Migrate applies numbered SQL files in order and skips versions already
+// recorded in schema_migrations.
 func Migrate(db *sql.DB, dir string) error {
 	if err := ensureMigrationTable(db); err != nil {
 		return err
@@ -67,6 +69,7 @@ func Migrate(db *sql.DB, dir string) error {
 }
 
 func ensureMigrationTable(db *sql.DB) error {
+	// This bookkeeping table records schema history, not forum domain data.
 	_, err := db.Exec(`
 		CREATE TABLE IF NOT EXISTS schema_migrations (
 			version INTEGER PRIMARY KEY
@@ -80,6 +83,7 @@ func ensureMigrationTable(db *sql.DB) error {
 }
 
 func migrationVersion(name string) (int, error) {
+	// A filename such as 002_forum_content.sql has migration version 2.
 	parts := strings.SplitN(name, "_", 2)
 
 	if len(parts) != 2 {
@@ -121,6 +125,8 @@ func migrationApplied(db *sql.DB, version int) (bool, error) {
 }
 
 func applyMigration(db *sql.DB, version int, migration string) error {
+	// The schema change and its version record are atomic. A failure rolls both
+	// back, leaving the migration safe to retry on the next startup.
 	tx, err := db.Begin()
 	if err != nil {
 		return fmt.Errorf("begin migration transaction: %w", err)

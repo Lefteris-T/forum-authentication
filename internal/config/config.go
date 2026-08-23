@@ -1,3 +1,4 @@
+// Package config loads and validates runtime settings from the environment.
 package config
 
 import (
@@ -17,6 +18,7 @@ const (
 	defaultSecureCookie    = false
 )
 
+// Config contains every runtime value required to construct the application.
 type Config struct {
 	Address         string
 	DatabasePath    string
@@ -25,6 +27,7 @@ type Config struct {
 	SecureCookie    bool
 }
 
+// Load applies defaults, reads FORUM_* overrides, and validates the result.
 func Load() (Config, error) {
 	cfg := Config{
 		Address:         envOrDefault("FORUM_ADDRESS", defaultAddress),

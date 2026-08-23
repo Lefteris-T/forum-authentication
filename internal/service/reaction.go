@@ -6,6 +6,7 @@ import (
 	"forum/internal/model"
 )
 
+// ErrInvalidReaction protects repositories from values outside like/dislike.
 var ErrInvalidReaction = errors.New("invalid reaction")
 
 type ReactionSetter interface {
@@ -22,6 +23,7 @@ type ReactionSetter interface {
 	) error
 }
 
+// ReactionService applies authentication and value checks to reactions.
 type ReactionService struct {
 	reactions ReactionSetter
 }
@@ -34,6 +36,7 @@ func NewReactionService(
 	}
 }
 
+// SetPostReaction validates the actor and reaction before persistence.
 func (s *ReactionService) SetPostReaction(
 	userID int64,
 	postID int64,
@@ -54,6 +57,7 @@ func (s *ReactionService) SetPostReaction(
 	)
 }
 
+// SetCommentReaction validates the actor and reaction before persistence.
 func (s *ReactionService) SetCommentReaction(
 	userID int64,
 	commentID int64,
