@@ -67,6 +67,7 @@ func (r *UserRepository) Create(
 func (r *UserRepository) ByEmail(email string) (model.User, error) {
 	var user model.User
 	var createdAt string
+	var passwordHash sql.NullString
 
 	err := r.db.QueryRow(`
 		SELECT
@@ -83,9 +84,14 @@ func (r *UserRepository) ByEmail(email string) (model.User, error) {
 		&user.ID,
 		&user.Email,
 		&user.Username,
-		&user.PasswordHash,
+		&passwordHash,
 		&createdAt,
 	)
+
+	if passwordHash.Valid {
+		user.PasswordHash = passwordHash.String
+	}
+
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return model.User{}, ErrUserNotFound
@@ -106,6 +112,7 @@ func (r *UserRepository) ByEmail(email string) (model.User, error) {
 func (r *UserRepository) ByID(id int64) (model.User, error) {
 	var user model.User
 	var createdAt string
+	var passwordHash sql.NullString
 
 	err := r.db.QueryRow(`
 		SELECT
@@ -122,9 +129,14 @@ func (r *UserRepository) ByID(id int64) (model.User, error) {
 		&user.ID,
 		&user.Email,
 		&user.Username,
-		&user.PasswordHash,
+		&passwordHash,
 		&createdAt,
 	)
+
+	if passwordHash.Valid {
+		user.PasswordHash = passwordHash.String
+	}
+
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return model.User{}, ErrUserNotFound

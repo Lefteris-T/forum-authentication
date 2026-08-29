@@ -166,3 +166,49 @@ func TestUserRepositoryReturnsConflictErrors(t *testing.T) {
 		t.Fatalf("duplicate username error = %v, want ErrUsernameExists", err)
 	}
 }
+func TestUserRepositoryReadsOAuthOnlyUserWithNullPassword(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "forum.db")
+
+	db, err := database.Open(dbPath)
+	if err != nil {
+		t.Fatalf("database.Open() error: %v", err)
+	}
+	defer db.Close()
+
+	if err := database.Migrate(db, "../../migrations"); err != nil {
+		t.Fatalf("database.Migrate() error: %v", err)
+	}
+
+	result, err := db.Exec(`
+		INSERT INTO users (
+			email,
+			username,
+			password_hash,
+			created_at
+		)
+		VALUES (?, ?, NULL, ?)
+	`,
+		"oauth@example.com",
+		"oauth-user",
+		"2026-08-29T00:00:00Z",
+	)
+	if err != nil {
+		t.Fatalf("insert oauth user error: %v", err)
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		t.Fatalf("LastInsertId() error: %v", err)
+	}
+
+	repo := NewUserRepository(db)
+
+	user, err := repo.ByID(id)
+	if err != nil {
+		t.Fatalf("ByID() error: %v", err)
+	}
+
+	if user.PasswordHash != "" {
+		t.Errorf("PasswordHash = %q, want empty string", user.PasswordHash)
+	}
+}

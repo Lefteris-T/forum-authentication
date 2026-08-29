@@ -145,6 +145,10 @@ func (s *LoginService) Login(
 		return model.User{}, err
 	}
 
+	if user.PasswordHash == "" {
+		return model.User{}, ErrInvalidCredentials
+	}
+
 	if err := s.passwords.Compare(
 		user.PasswordHash,
 		validated.Password,

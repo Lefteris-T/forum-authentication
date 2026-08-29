@@ -337,7 +337,7 @@ func TestLoginInvalidInputStopsEarly(t *testing.T) {
 
 	passwords := &fakePasswordComparer{}
 
-	auth:=NewLoginService(
+	auth := NewLoginService(
 		users,
 		passwords,
 		nil,
@@ -466,5 +466,41 @@ func TestLogoutDeletesSession(t *testing.T) {
 			sessions.deleteID,
 			"session-123",
 		)
+	}
+}
+func TestLoginRejectsOAuthOnlyUser(t *testing.T) {
+	users := &fakeUserFinder{
+		user: model.User{
+			ID:           42,
+			Email:        "oauth@example.com",
+			Username:     "oauth-user",
+			PasswordHash: "",
+		},
+	}
+
+	passwords := &fakePasswordComparer{}
+
+	auth := NewLoginService(
+		users,
+		passwords,
+		nil,
+		24*time.Hour,
+	)
+
+	_, err := auth.Login(validation.LoginInput{
+		Email:    "oauth@example.com",
+		Password: "some-password",
+	})
+
+	if !errors.Is(err, ErrInvalidCredentials) {
+		t.Fatalf(
+			"Login() error = %v, want %v",
+			err,
+			ErrInvalidCredentials,
+		)
+	}
+
+	if passwords.called {
+		t.Fatal("password Compare() was called for OAuth-only user")
 	}
 }
