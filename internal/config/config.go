@@ -4,6 +4,7 @@ package config
 import (
 	"fmt"
 	"net"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -18,6 +19,14 @@ const (
 	defaultSecureCookie    = false
 )
 
+// for providers authentication.
+type OAuthProviderConfig struct {
+	ClientID     string
+	ClientSecret string
+	RedirectURL  string
+	Enabled      bool
+}
+
 // Config contains every runtime value required to construct the application.
 type Config struct {
 	Address         string
@@ -25,6 +34,9 @@ type Config struct {
 	SessionDuration time.Duration
 	CookieName      string
 	SecureCookie    bool
+
+	GitHub OAuthProviderConfig
+	Google OAuthProviderConfig
 }
 
 // Load applies defaults, reads FORUM_* overrides, and validates the result.
@@ -35,6 +47,17 @@ func Load() (Config, error) {
 		SessionDuration: defaultSessionDuration,
 		CookieName:      envOrDefault("FORUM_COOKIE_NAME", defaultCookieName),
 		SecureCookie:    defaultSecureCookie,
+	}
+	cfg.GitHub = OAuthProviderConfig{
+		ClientID:     os.Getenv("GITHUB_CLIENT_ID"),
+		ClientSecret: os.Getenv("GITHUB_CLIENT_SECRET"),
+		RedirectURL:  os.Getenv("GITHUB_REDIRECT_URL"),
+	}
+
+	cfg.Google = OAuthProviderConfig{
+		ClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
+		ClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
+		RedirectURL:  os.Getenv("GOOGLE_REDIRECT_URL"),
 	}
 
 	durationValue := os.Getenv("FORUM_SESSION_DURATION")
@@ -57,7 +80,7 @@ func Load() (Config, error) {
 		cfg.SecureCookie = secureCookie
 	}
 
-	if err := validate(cfg); err != nil {
+	if err := validate(&cfg); err != nil {
 		return Config{}, err
 	}
 
@@ -73,7 +96,7 @@ func envOrDefault(key, defaultValue string) string {
 	return value
 }
 
-func validate(cfg Config) error {
+func validate(cfg *Config) error {
 	if err := validateAddress(cfg.Address); err != nil {
 		return err
 	}
@@ -87,6 +110,13 @@ func validate(cfg Config) error {
 	}
 
 	if err := validateCookieName(cfg.CookieName); err != nil {
+		return err
+	}
+	if err := validateOAuthProvider("github", &cfg.GitHub); err != nil {
+		return err
+	}
+
+	if err := validateOAuthProvider("google", &cfg.Google); err != nil {
 		return err
 	}
 
@@ -143,6 +173,48 @@ func validateCookieName(name string) error {
 			return fmt.Errorf("cookie name contains invalid character %q", character)
 		}
 	}
+
+	return nil
+}
+
+func validateOAuthProvider(name string, cfg *OAuthProviderConfig) error {
+	values := []string{
+		cfg.ClientID,
+		cfg.ClientSecret,
+		cfg.RedirectURL,
+	}
+
+	set := 0
+
+	for _, value := range values {
+		if value != "" {
+			set++
+		}
+	}
+
+	if set == 0 {
+		cfg.Enabled = false
+		return nil
+	}
+
+	if set != len(values) {
+		return fmt.Errorf("%s oauth configuration is incomplete", name)
+	}
+
+	u, err := url.Parse(cfg.RedirectURL)
+	if err != nil {
+		return fmt.Errorf("%s oauth redirect URL: %w", name, err)
+	}
+
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return fmt.Errorf("%s oauth redirect URL must use http or https", name)
+	}
+
+	if u.Host == "" {
+		return fmt.Errorf("%s oauth redirect URL must include a host", name)
+	}
+
+	cfg.Enabled = true
 
 	return nil
 }
