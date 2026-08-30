@@ -246,6 +246,12 @@ func (r *OAuthAccountRepository) CreateUserWithOAuthAccount(
 			created_at
 		)
 		VALUES (?, ?, NULL, ?)
+
+		ON CONFLICT(username)
+		DO NOTHING
+
+		ON CONFLICT(email)
+		DO NOTHING
 	`,
 		email,
 		username,
@@ -253,6 +259,56 @@ func (r *OAuthAccountRepository) CreateUserWithOAuthAccount(
 	)
 	if err != nil {
 		return 0, fmt.Errorf("create oauth user: %w", err)
+	}
+
+	rowsAffected, err := userResult.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf(
+			"get oauth user rows affected: %w",
+			err,
+		)
+	}
+
+	if rowsAffected == 0 {
+		var exists int
+
+		err := tx.QueryRow(`
+			SELECT EXISTS(
+				SELECT 1
+				FROM users
+				WHERE username = ?
+			)
+		`, username).Scan(&exists)
+		if err != nil {
+			return 0, fmt.Errorf(
+				"check existing username: %w",
+				err,
+			)
+		}
+
+		if exists == 1 {
+			return 0, ErrUsernameExists
+		}
+
+		err = tx.QueryRow(`
+			SELECT EXISTS(
+				SELECT 1
+				FROM users
+				WHERE email = ?
+			)
+		`, email).Scan(&exists)
+		if err != nil {
+			return 0, fmt.Errorf(
+				"check existing email: %w",
+				err,
+			)
+		}
+
+		if exists == 1 {
+			return 0, ErrEmailExists
+		}
+
+		return 0, errors.New("oauth user was not created")
 	}
 
 	userID, err := userResult.LastInsertId()

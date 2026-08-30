@@ -593,3 +593,69 @@ func TestOAuthAccountRepositoryConcurrentDuplicateCreate(t *testing.T) {
 		t.Fatalf("user count = %d, want 1", userCount)
 	}
 }
+func TestOAuthAccountRepositoryCreateUserWithOAuthAccountReturnsUsernameConflict(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "forum.db")
+
+	db, err := database.Open(dbPath)
+	if err != nil {
+		t.Fatalf("database.Open() error: %v", err)
+	}
+	defer db.Close()
+
+	if err := database.Migrate(db, "../../migrations"); err != nil {
+		t.Fatalf("database.Migrate() error: %v", err)
+	}
+
+	_, err = db.Exec(`
+		INSERT INTO users (
+			email,
+			username,
+			password_hash,
+			created_at
+		)
+		VALUES (?, ?, ?, ?)
+	`,
+		"existing@example.com",
+		"octocat",
+		"some-hash",
+		"2026-08-30T00:00:00Z",
+	)
+	if err != nil {
+		t.Fatalf("insert existing user error: %v", err)
+	}
+
+	repo := NewOAuthAccountRepository(db)
+
+	_, err = repo.CreateUserWithOAuthAccount(
+		"oauth@example.com",
+		"octocat",
+		"github",
+		"123456",
+	)
+
+	if !errors.Is(err, ErrUsernameExists) {
+		t.Fatalf(
+			"CreateUserWithOAuthAccount() error = %v, want %v",
+			err,
+			ErrUsernameExists,
+		)
+	}
+
+	var count int
+
+	err = db.QueryRow(`
+		SELECT COUNT(*)
+		FROM users
+		WHERE email = ?
+	`, "oauth@example.com").Scan(&count)
+	if err != nil {
+		t.Fatalf("count oauth user error: %v", err)
+	}
+
+	if count != 0 {
+		t.Fatalf(
+			"oauth user count = %d, want 0 after username conflict",
+			count,
+		)
+	}
+}
