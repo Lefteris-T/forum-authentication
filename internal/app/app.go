@@ -13,6 +13,7 @@ import (
 
 	"forum/internal/config"
 	"forum/internal/database"
+	"forum/internal/oauth"
 	"forum/internal/repository"
 	"forum/internal/service"
 	sessionpkg "forum/internal/session"
@@ -202,7 +203,26 @@ func buildHandler(
 		reactionService,
 		comments,
 	)
+	oauthStateStore := oauth.NewOAuthStateStore()
 
+	var githubOAuthHandler http.Handler
+
+	if cfg.GitHub.Enabled {
+		githubOAuthHandler = oauth.NewGitHubAuthorizationHandler(
+			oauth.ProviderConfig{
+				ClientID:              cfg.GitHub.ClientID,
+				ClientSecret:          cfg.GitHub.ClientSecret,
+				RedirectURL:           cfg.GitHub.RedirectURL,
+				AuthorizationEndpoint: "https://github.com/login/oauth/authorize",
+				TokenEndpoint:         "https://github.com/login/oauth/access_token",
+				UserEndpoint:          "https://api.github.com/user",
+				Client:                oauth.DefaultHTTPClient(),
+			},
+			oauthStateStore,
+			"github_oauth_state",
+			cfg.SecureCookie,
+		)
+	}
 	// Routing describes HTTP shape only; business and persistence rules stay in
 	// their respective service and repository layers.
 	router := web.NewForumRouter(
@@ -216,6 +236,7 @@ func buildHandler(
 			CommentCreate:   commentHandler,
 			PostReaction:    postReactionHandler,
 			CommentReaction: commentReactionHandler,
+			GitHubOAuth:     githubOAuthHandler,
 			Static: http.FileServer(
 				http.Dir(resolveProjectPath("static")),
 			),

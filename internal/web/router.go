@@ -27,6 +27,7 @@ type Handlers struct {
 	PostReaction    http.Handler
 	CommentReaction http.Handler
 	Static          http.Handler
+	GitHubOAuth     http.Handler
 }
 
 // NewRouter centralizes method enforcement and Allow-header responses.
@@ -87,7 +88,7 @@ func writeError(
 
 // NewForumRouter declares every public and protected forum route.
 func NewForumRouter(h Handlers) http.Handler {
-	return NewRouter([]Route{
+	routes := []Route{
 		{
 			Methods: []string{http.MethodGet},
 			Pattern: "/",
@@ -156,7 +157,16 @@ func NewForumRouter(h Handlers) http.Handler {
 				h.CommentReaction,
 			),
 		},
-	})
+	}
+	if h.GitHubOAuth != nil {
+		routes = append(routes, Route{
+			Methods: []string{http.MethodGet},
+			Pattern: "/auth/github",
+			Handler: h.GitHubOAuth,
+		})
+	}
+
+	return NewRouter(routes)
 }
 
 func postRoutes(
