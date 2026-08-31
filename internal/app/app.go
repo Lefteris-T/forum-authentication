@@ -114,6 +114,7 @@ func buildHandler(
 	posts := repository.NewPostRepository(db)
 	comments := repository.NewCommentRepository(db)
 	reactions := repository.NewReactionRepository(db)
+	oauthAccounts := repository.NewOAuthAccountRepository(db)
 
 	passwords := service.NewPasswordManager()
 
@@ -205,38 +206,65 @@ func buildHandler(
 	)
 	oauthStateStore := oauth.NewOAuthStateStore()
 
+	oauthLoginService := service.NewOAuthLoginService(
+		oauthAccounts,
+		users,
+	)
+
+	oauthSuccessHandler := handler.NewOAuthSuccessHandler(
+		oauthLoginService,
+		sessionManager,
+		loginService,
+	)
+
 	var githubOAuthHandler http.Handler
+	var githubOAuthCallbackHandler http.Handler
 
 	if cfg.GitHub.Enabled {
+		githubProviderConfig := oauth.ProviderConfig{
+			ClientID:              cfg.GitHub.ClientID,
+			ClientSecret:          cfg.GitHub.ClientSecret,
+			RedirectURL:           cfg.GitHub.RedirectURL,
+			AuthorizationEndpoint: "https://github.com/login/oauth/authorize",
+			TokenEndpoint:         "https://github.com/login/oauth/access_token",
+			UserEndpoint:          "https://api.github.com/user",
+			Client:                oauth.DefaultHTTPClient(),
+		}
+
+		githubProvider := oauth.NewGitHubProvider(
+			githubProviderConfig,
+		)
+
 		githubOAuthHandler = oauth.NewGitHubAuthorizationHandler(
-			oauth.ProviderConfig{
-				ClientID:              cfg.GitHub.ClientID,
-				ClientSecret:          cfg.GitHub.ClientSecret,
-				RedirectURL:           cfg.GitHub.RedirectURL,
-				AuthorizationEndpoint: "https://github.com/login/oauth/authorize",
-				TokenEndpoint:         "https://github.com/login/oauth/access_token",
-				UserEndpoint:          "https://api.github.com/user",
-				Client:                oauth.DefaultHTTPClient(),
-			},
+			githubProviderConfig,
 			oauthStateStore,
 			"github_oauth_state",
 			cfg.SecureCookie,
+		)
+
+		githubOAuthCallbackHandler = oauth.NewGitHubCallbackHandler(
+			githubProvider,
+			oauthStateStore,
+			"github_oauth_state",
+			cfg.SecureCookie,
+			oauthSuccessHandler.Handle,
 		)
 	}
 	// Routing describes HTTP shape only; business and persistence rules stay in
 	// their respective service and repository layers.
 	router := web.NewForumRouter(
 		web.Handlers{
-			Home:            homeHandler,
-			Register:        registerHandler,
-			Login:           loginHandler,
-			Logout:          logoutHandler,
-			PostCreation:    postCreationHandler,
-			PostDetail:      postDetailHandler,
-			CommentCreate:   commentHandler,
-			PostReaction:    postReactionHandler,
-			CommentReaction: commentReactionHandler,
-			GitHubOAuth:     githubOAuthHandler,
+			Home:                homeHandler,
+			Register:            registerHandler,
+			Login:               loginHandler,
+			Logout:              logoutHandler,
+			PostCreation:        postCreationHandler,
+			PostDetail:          postDetailHandler,
+			CommentCreate:       commentHandler,
+			PostReaction:        postReactionHandler,
+			CommentReaction:     commentReactionHandler,
+			GitHubOAuth:         githubOAuthHandler,
+			GitHubOAuthCallback: githubOAuthCallbackHandler,
 			Static: http.FileServer(
 				http.Dir(resolveProjectPath("static")),
 			),

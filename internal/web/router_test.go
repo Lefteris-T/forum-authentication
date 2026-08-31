@@ -944,3 +944,40 @@ func TestForumRouterServesStaticCSS(t *testing.T) {
 		t.Fatal("CSS file was not served")
 	}
 }
+func TestForumRouterGitHubOAuthCallbackRoute(t *testing.T) {
+	called := false
+
+	callback := http.HandlerFunc(func(
+		w http.ResponseWriter,
+		r *http.Request,
+	) {
+		called = true
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	router := NewForumRouter(Handlers{
+		GitHubOAuthCallback: callback,
+	})
+
+	req := httptest.NewRequest(
+		http.MethodGet,
+		"/auth/github/callback",
+		nil,
+	)
+
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if !called {
+		t.Fatal("GitHub OAuth callback handler was not called")
+	}
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf(
+			"status = %d, want %d",
+			rec.Code,
+			http.StatusNoContent,
+		)
+	}
+}

@@ -504,3 +504,136 @@ func TestGitHubCallbackReturnsBadGatewayOnFetchUserFailure(t *testing.T) {
 		)
 	}
 }
+
+type forumSessionTestProvider struct{}
+
+func (f *forumSessionTestProvider) AuthorizationURL(
+	state string,
+	challenge string,
+) (string, error) {
+	return "", nil
+}
+
+func (f *forumSessionTestProvider) ExchangeCode(
+	ctx context.Context,
+	code string,
+	verifier string,
+) (string, error) {
+	return "access-token", nil
+}
+
+func (f *forumSessionTestProvider) FetchUser(
+	ctx context.Context,
+	accessToken string,
+) (User, error) {
+	return User{
+		Provider:          "github",
+		ProviderUserID:    "123456",
+		VerifiedEmail:     "oauth@example.com",
+		SuggestedUsername: "octocat",
+	}, nil
+}
+func TestGitHubCallbackSuccessWritesForumSessionCookie(t *testing.T) {
+	provider := &forumSessionTestProvider{}
+
+	store := NewOAuthStateStore()
+
+	state := "test-state"
+	verifier := "test-verifier"
+
+	store.Save(
+		state,
+		"github",
+		verifier,
+		time.Now().Add(10*time.Minute),
+	)
+
+	onSuccess := func(
+		w http.ResponseWriter,
+		r *http.Request,
+		user User,
+	) {
+		http.SetCookie(w, &http.Cookie{
+			Name:     "forum_session",
+			Value:    "session-123",
+			Path:     "/",
+			HttpOnly: true,
+			SameSite: http.SameSiteLaxMode,
+		})
+
+		http.Redirect(
+			w,
+			r,
+			"/",
+			http.StatusSeeOther,
+		)
+	}
+
+	handler := NewGitHubCallbackHandler(
+		provider,
+		store,
+		"github_oauth_state",
+		false,
+		onSuccess,
+	)
+
+	req := httptest.NewRequest(
+		http.MethodGet,
+		"/auth/github/callback?state="+state+"&code=test-code",
+		nil,
+	)
+
+	req.AddCookie(&http.Cookie{
+		Name:  "github_oauth_state",
+		Value: state,
+	})
+
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf(
+			"status = %d, want %d",
+			rec.Code,
+			http.StatusSeeOther,
+		)
+	}
+
+	if location := rec.Header().Get("Location"); location != "/" {
+		t.Fatalf(
+			"Location = %q, want %q",
+			location,
+			"/",
+		)
+	}
+
+	res := rec.Result()
+	defer res.Body.Close()
+
+	var found bool
+
+	for _, cookie := range res.Cookies() {
+		if cookie.Name != "forum_session" {
+			continue
+		}
+
+		found = true
+
+		if cookie.Value != "session-123" {
+			t.Fatalf(
+				"forum_session value = %q, want %q",
+				cookie.Value,
+				"session-123",
+			)
+		}
+
+		if !cookie.HttpOnly {
+			t.Fatal("forum_session cookie must be HttpOnly")
+		}
+	}
+
+	if !found {
+		t.Fatal("forum_session cookie was not written")
+	}
+}

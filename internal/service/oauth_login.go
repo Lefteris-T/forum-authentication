@@ -36,31 +36,24 @@ type oauthUserFinder interface {
 	ByEmail(email string) (model.User, error)
 }
 
-type oauthSessionCreator interface {
-	CreateSession(userID int64) (model.Session, error)
-}
-
 type OAuthLoginService struct {
 	oauthAccounts oauthAccountRepository
 	users         oauthUserFinder
-	sessions      oauthSessionCreator
 }
 
 func NewOAuthLoginService(
 	oauthAccounts oauthAccountRepository,
 	users oauthUserFinder,
-	sessions oauthSessionCreator,
 ) *OAuthLoginService {
 	return &OAuthLoginService{
 		oauthAccounts: oauthAccounts,
 		users:         users,
-		sessions:      sessions,
 	}
 }
 
 func (s *OAuthLoginService) Login(
 	oauthUser oauth.User,
-) (model.Session, error) {
+) (model.User, error) {
 	account, err := s.oauthAccounts.FindByProviderUserID(
 		oauthUser.Provider,
 		oauthUser.ProviderUserID,
@@ -70,22 +63,17 @@ func (s *OAuthLoginService) Login(
 	if err == nil {
 		user, err := s.users.ByID(account.UserID)
 		if err != nil {
-			return model.Session{}, err
-		}
-
-		session, err := s.sessions.CreateSession(user.ID)
-		if err != nil {
-			return model.Session{}, fmt.Errorf(
-				"create oauth session: %w",
+			return model.User{}, fmt.Errorf(
+				"find oauth user: %w",
 				err,
 			)
 		}
 
-		return session, nil
+		return user, nil
 	}
 
 	if !errors.Is(err, repository.ErrOAuthAccountNotFound) {
-		return model.Session{}, fmt.Errorf(
+		return model.User{}, fmt.Errorf(
 			"find oauth account: %w",
 			err,
 		)
@@ -93,18 +81,19 @@ func (s *OAuthLoginService) Login(
 
 	// First-time OAuth user.
 	if oauthUser.VerifiedEmail == "" {
-		return model.Session{}, ErrOAuthVerifiedEmailRequired
+		return model.User{}, ErrOAuthVerifiedEmailRequired
 	}
 
-	// Do not automatically link an OAuth identity to an existing account.
+	// Do not automatically link an OAuth identity
+	// to an existing local account.
 	_, err = s.users.ByEmail(oauthUser.VerifiedEmail)
 
 	if err == nil {
-		return model.Session{}, ErrOAuthEmailConflict
+		return model.User{}, ErrOAuthEmailConflict
 	}
 
 	if !errors.Is(err, repository.ErrUserNotFound) {
-		return model.Session{}, fmt.Errorf(
+		return model.User{}, fmt.Errorf(
 			"check oauth email: %w",
 			err,
 		)
@@ -138,24 +127,24 @@ func (s *OAuthLoginService) Login(
 		}
 
 		if errors.Is(err, repository.ErrEmailExists) {
-			return model.Session{}, ErrOAuthEmailConflict
+			return model.User{}, ErrOAuthEmailConflict
 		}
 
-		return model.Session{}, fmt.Errorf(
+		return model.User{}, fmt.Errorf(
 			"create oauth user: %w",
 			err,
 		)
 	}
 
-	session, err := s.sessions.CreateSession(userID)
+	user, err := s.users.ByID(userID)
 	if err != nil {
-		return model.Session{}, fmt.Errorf(
-			"create oauth session: %w",
+		return model.User{}, fmt.Errorf(
+			"find created oauth user: %w",
 			err,
 		)
 	}
 
-	return session, nil
+	return user, nil
 }
 
 const maxUsernameLength = 32

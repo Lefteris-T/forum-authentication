@@ -17,17 +17,18 @@ type Route struct {
 
 // Handlers groups constructed endpoints for router assembly.
 type Handlers struct {
-	Home            http.Handler
-	Register        http.Handler
-	Login           http.Handler
-	Logout          http.Handler
-	PostCreation    http.Handler
-	PostDetail      http.Handler
-	CommentCreate   http.Handler
-	PostReaction    http.Handler
-	CommentReaction http.Handler
-	Static          http.Handler
-	GitHubOAuth     http.Handler
+	Home                http.Handler
+	Register            http.Handler
+	Login               http.Handler
+	Logout              http.Handler
+	PostCreation        http.Handler
+	PostDetail          http.Handler
+	CommentCreate       http.Handler
+	PostReaction        http.Handler
+	CommentReaction     http.Handler
+	Static              http.Handler
+	GitHubOAuth         http.Handler
+	GitHubOAuthCallback http.Handler
 }
 
 // NewRouter centralizes method enforcement and Allow-header responses.
@@ -163,6 +164,13 @@ func NewForumRouter(h Handlers) http.Handler {
 			Methods: []string{http.MethodGet},
 			Pattern: "/auth/github",
 			Handler: h.GitHubOAuth,
+		})
+	}
+	if h.GitHubOAuthCallback != nil {
+		routes = append(routes, Route{
+			Methods: []string{http.MethodGet},
+			Pattern: "/auth/github/callback",
+			Handler: h.GitHubOAuthCallback,
 		})
 	}
 
