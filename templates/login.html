@@ -78,6 +78,16 @@
 
         </form>
 
+        {{if .GitHubOAuthEnabled}}
+            <div class="oauth-login">
+                <p>or</p>
+
+                <a href="/auth/github">
+                    Continue with GitHub
+                </a>
+            </div>
+        {{end}}
+
         <p>
             No account yet?
             <a href="/register">

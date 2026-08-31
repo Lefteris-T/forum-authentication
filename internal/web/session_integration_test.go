@@ -107,6 +107,7 @@ func TestSingleActiveBrowserSession(t *testing.T) {
 		loginService,
 		sessionManager,
 		renderer,
+		false,
 	)
 
 	mux := http.NewServeMux()

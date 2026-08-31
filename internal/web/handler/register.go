@@ -20,24 +20,28 @@ type RegistrationService interface {
 
 // RegisterHandler serves the registration form and account submission.
 type RegisterHandler struct {
-	service  RegistrationService
-	renderer *view.Renderer
+	service            RegistrationService
+	renderer           *view.Renderer
+	gitHubOAuthEnabled bool
 }
 
 type registerPageData struct {
-	Email    string
-	Username string
-	Error    string
+	Email              string
+	Username           string
+	Error              string
+	GitHubOAuthEnabled bool
 }
 
 // NewRegisterHandler constructs registration HTTP behavior.
 func NewRegisterHandler(
 	service RegistrationService,
 	renderer *view.Renderer,
+	gitHubOAuthEnabled bool,
 ) *RegisterHandler {
 	return &RegisterHandler{
-		service:  service,
-		renderer: renderer,
+		service:            service,
+		renderer:           renderer,
+		gitHubOAuthEnabled: gitHubOAuthEnabled,
 	}
 }
 
@@ -69,7 +73,9 @@ func (h *RegisterHandler) handleGet(w http.ResponseWriter) {
 		w,
 		http.StatusOK,
 		"register.html",
-		registerPageData{},
+		registerPageData{
+			GitHubOAuthEnabled: h.gitHubOAuthEnabled,
+		},
 	); err != nil {
 		http.Error(
 			w,
@@ -88,7 +94,8 @@ func (h *RegisterHandler) handlePost(
 			w,
 			http.StatusBadRequest,
 			registerPageData{
-				Error: "Invalid form",
+				Error:              "Invalid form",
+				GitHubOAuthEnabled: h.gitHubOAuthEnabled,
 			},
 		)
 		return
@@ -112,8 +119,9 @@ func (h *RegisterHandler) handlePost(
 	}
 
 	data := registerPageData{
-		Email:    input.Email,
-		Username: input.Username,
+		Email:              input.Email,
+		Username:           input.Username,
+		GitHubOAuthEnabled: h.gitHubOAuthEnabled,
 	}
 
 	switch {

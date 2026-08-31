@@ -174,12 +174,14 @@ func newIntegrationEnv(t *testing.T) *integrationEnv {
 	registerHandler := handler.NewRegisterHandler(
 		authService,
 		renderer,
+		false,
 	)
 
 	loginHandler := handler.NewLoginHandler(
 		loginService,
 		sessionManager,
 		renderer,
+		false,
 	)
 
 	logoutHandler := handler.NewLogoutHandler(

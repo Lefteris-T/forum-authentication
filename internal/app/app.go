@@ -163,12 +163,14 @@ func buildHandler(
 	registerHandler := handler.NewRegisterHandler(
 		authService,
 		renderer,
+		cfg.GitHub.Enabled,
 	)
 
 	loginHandler := handler.NewLoginHandler(
 		loginService,
 		sessionManager,
 		renderer,
+		cfg.GitHub.Enabled,
 	)
 
 	logoutHandler := handler.NewLogoutHandler(

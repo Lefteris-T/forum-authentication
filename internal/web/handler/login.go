@@ -26,14 +26,16 @@ type SessionManager interface {
 
 // LoginHandler serves login and creates matching cookie/database sessions.
 type LoginHandler struct {
-	service  LoginService
-	sessions SessionManager
-	renderer *view.Renderer
+	service            LoginService
+	sessions           SessionManager
+	renderer           *view.Renderer
+	gitHubOAuthEnabled bool
 }
 
 type loginPageData struct {
-	Email string
-	Error string
+	Email              string
+	Error              string
+	GitHubOAuthEnabled bool
 }
 
 // NewLoginHandler constructs login HTTP behavior.
@@ -41,11 +43,13 @@ func NewLoginHandler(
 	service LoginService,
 	sessions SessionManager,
 	renderer *view.Renderer,
+	gitHubOAuthEnabled bool,
 ) *LoginHandler {
 	return &LoginHandler{
-		service:  service,
-		sessions: sessions,
-		renderer: renderer,
+		service:            service,
+		sessions:           sessions,
+		renderer:           renderer,
+		gitHubOAuthEnabled: gitHubOAuthEnabled,
 	}
 }
 
@@ -77,7 +81,9 @@ func (h *LoginHandler) handleGet(w http.ResponseWriter) {
 		w,
 		http.StatusOK,
 		"login.html",
-		loginPageData{},
+		loginPageData{
+			GitHubOAuthEnabled: h.gitHubOAuthEnabled,
+		},
 	); err != nil {
 		http.Error(
 			w,
@@ -96,7 +102,8 @@ func (h *LoginHandler) handlePost(
 			w,
 			http.StatusBadRequest,
 			loginPageData{
-				Error: "Invalid form",
+				Error:              "Invalid form",
+				GitHubOAuthEnabled: h.gitHubOAuthEnabled,
 			},
 		)
 		return
@@ -110,7 +117,8 @@ func (h *LoginHandler) handlePost(
 	user, err := h.service.Login(input)
 	if err != nil {
 		data := loginPageData{
-			Email: input.Email,
+			Email:              input.Email,
+			GitHubOAuthEnabled: h.gitHubOAuthEnabled,
 		}
 
 		switch {
