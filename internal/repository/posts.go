@@ -132,7 +132,6 @@ func (r *PostRepository) List() ([]PostListItem, error) {
 			u.id,
 			u.email,
 			u.username,
-			u.password_hash,
 			u.created_at,
 			COALESCE(SUM(
 				CASE WHEN pr.value = 1 THEN 1 ELSE 0 END
@@ -168,7 +167,6 @@ func (r *PostRepository) List() ([]PostListItem, error) {
 			&post.Author.ID,
 			&post.Author.Email,
 			&post.Author.Username,
-			&post.Author.PasswordHash,
 			&userCreatedAt,
 			&post.Likes,
 			&post.Dislikes,
@@ -337,7 +335,6 @@ func (r *PostRepository) Detail(
 			u.id,
 			u.email,
 			u.username,
-			u.password_hash,
 			u.created_at,
 			COALESCE(SUM(
 				CASE WHEN pr.value = 1 THEN 1 ELSE 0 END
@@ -360,7 +357,6 @@ func (r *PostRepository) Detail(
 		&post.Author.ID,
 		&post.Author.Email,
 		&post.Author.Username,
-		&post.Author.PasswordHash,
 		&userCreatedAt,
 		&post.Likes,
 		&post.Dislikes,
@@ -412,7 +408,6 @@ func (r *PostRepository) commentsForPost(
 			u.id,
 			u.email,
 			u.username,
-			u.password_hash,
 			u.created_at,
 			COALESCE(SUM(
 				CASE WHEN cr.value = 1 THEN 1 ELSE 0 END
@@ -449,7 +444,6 @@ func (r *PostRepository) commentsForPost(
 			&comment.Author.ID,
 			&comment.Author.Email,
 			&comment.Author.Username,
-			&comment.Author.PasswordHash,
 			&userCreatedAt,
 			&comment.Likes,
 			&comment.Dislikes,
@@ -516,7 +510,6 @@ func (r *PostRepository) ListByCategory(
 			u.id,
 			u.email,
 			u.username,
-			u.password_hash,
 			u.created_at,
 			COALESCE(SUM(
 				CASE WHEN pr.value = 1 THEN 1 ELSE 0 END
@@ -555,7 +548,6 @@ func (r *PostRepository) ListByCategory(
 			&post.Author.ID,
 			&post.Author.Email,
 			&post.Author.Username,
-			&post.Author.PasswordHash,
 			&userCreatedAt,
 			&post.Likes,
 			&post.Dislikes,
@@ -612,7 +604,6 @@ func (r *PostRepository) ListByAuthor(
 			u.id,
 			u.email,
 			u.username,
-			u.password_hash,
 			u.created_at,
 			COALESCE(SUM(
 				CASE WHEN pr.value = 1 THEN 1 ELSE 0 END
@@ -649,7 +640,6 @@ func (r *PostRepository) ListByAuthor(
 			&post.Author.ID,
 			&post.Author.Email,
 			&post.Author.Username,
-			&post.Author.PasswordHash,
 			&userCreatedAt,
 			&post.Likes,
 			&post.Dislikes,
@@ -707,7 +697,6 @@ func (r *PostRepository) ListLikedByUser(
 			u.id,
 			u.email,
 			u.username,
-			u.password_hash,
 			u.created_at,
 			COALESCE(SUM(
 				CASE WHEN all_pr.value = 1 THEN 1 ELSE 0 END
@@ -750,7 +739,6 @@ func (r *PostRepository) ListLikedByUser(
 			&post.Author.ID,
 			&post.Author.Email,
 			&post.Author.Username,
-			&post.Author.PasswordHash,
 			&userCreatedAt,
 			&post.Likes,
 			&post.Dislikes,

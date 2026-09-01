@@ -9,6 +9,97 @@ import (
 	"forum/internal/model"
 )
 
+func TestPostRepositoryReadsOAuthOnlyAuthors(t *testing.T) {
+	db, err := database.Open(filepath.Join(t.TempDir(), "forum.db"))
+	if err != nil {
+		t.Fatalf("database.Open(): %v", err)
+	}
+	defer db.Close()
+
+	if err := database.Migrate(db, filepath.Join("..", "..", "migrations")); err != nil {
+		t.Fatalf("database.Migrate(): %v", err)
+	}
+
+	oauthAccounts := NewOAuthAccountRepository(db)
+	userID, err := oauthAccounts.CreateUserWithOAuthAccount(
+		"oauth@example.com",
+		"oauth-user",
+		"github",
+		"123456",
+	)
+	if err != nil {
+		t.Fatalf("CreateUserWithOAuthAccount(): %v", err)
+	}
+
+	posts := NewPostRepository(db)
+	postID, err := posts.Create(
+		userID,
+		"OAuth post",
+		"Created without a password hash",
+		[]int64{1},
+	)
+	if err != nil {
+		t.Fatalf("posts.Create(): %v", err)
+	}
+
+	comments := NewCommentRepository(db)
+	if _, err := comments.Create(postID, userID, "OAuth comment"); err != nil {
+		t.Fatalf("comments.Create(): %v", err)
+	}
+
+	if _, err := db.Exec(`
+		INSERT INTO post_reactions (user_id, post_id, value)
+		VALUES (?, ?, 1)
+	`, userID, postID); err != nil {
+		t.Fatalf("insert post reaction: %v", err)
+	}
+
+	listChecks := []struct {
+		name string
+		read func() ([]PostListItem, error)
+	}{
+		{name: "all posts", read: posts.List},
+		{name: "category", read: func() ([]PostListItem, error) {
+			return posts.ListByCategory(1)
+		}},
+		{name: "author", read: func() ([]PostListItem, error) {
+			return posts.ListByAuthor(userID)
+		}},
+		{name: "liked", read: func() ([]PostListItem, error) {
+			return posts.ListLikedByUser(userID)
+		}},
+	}
+
+	for _, check := range listChecks {
+		t.Run(check.name, func(t *testing.T) {
+			got, err := check.read()
+			if err != nil {
+				t.Fatalf("read posts: %v", err)
+			}
+			if len(got) != 1 || got[0].ID != postID {
+				t.Fatalf("posts = %#v, want post %d", got, postID)
+			}
+			if got[0].Author.PasswordHash != "" {
+				t.Fatal("post query loaded an author password hash")
+			}
+		})
+	}
+
+	detail, err := posts.Detail(postID)
+	if err != nil {
+		t.Fatalf("posts.Detail(): %v", err)
+	}
+	if detail.Author.PasswordHash != "" {
+		t.Fatal("post detail loaded an author password hash")
+	}
+	if len(detail.Comments) != 1 {
+		t.Fatalf("comment count = %d, want 1", len(detail.Comments))
+	}
+	if detail.Comments[0].Author.PasswordHash != "" {
+		t.Fatal("comment query loaded an author password hash")
+	}
+}
+
 func TestPostRepositoryCreateWithOneCategory(t *testing.T) {
 	dbPath := filepath.Join(
 		t.TempDir(),
