@@ -164,6 +164,7 @@ func buildHandler(
 		authService,
 		renderer,
 		cfg.GitHub.Enabled,
+		cfg.Google.Enabled,
 	)
 
 	loginHandler := handler.NewLoginHandler(
@@ -171,6 +172,7 @@ func buildHandler(
 		sessionManager,
 		renderer,
 		cfg.GitHub.Enabled,
+		cfg.Google.Enabled,
 	)
 
 	logoutHandler := handler.NewLogoutHandler(

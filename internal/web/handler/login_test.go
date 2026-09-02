@@ -48,6 +48,7 @@ func TestLoginGET(t *testing.T) {
 		nil,
 		renderer,
 		false,
+		false,
 	)
 
 	req := httptest.NewRequest(
@@ -198,6 +199,7 @@ func TestLoginPOSTSuccess(t *testing.T) {
 		sessions,
 		renderer,
 		false,
+		false,
 	)
 
 	form := strings.NewReader(
@@ -306,6 +308,7 @@ func TestLoginPOSTInvalidInputReturnsBadRequest(t *testing.T) {
 		sessions,
 		renderer,
 		false,
+		false,
 	)
 
 	form := strings.NewReader(
@@ -385,6 +388,7 @@ func TestLoginPOSTWrongCredentialsReturnsUnauthorized(t *testing.T) {
 		service,
 		sessions,
 		renderer,
+		false,
 		false,
 	)
 
@@ -538,6 +542,7 @@ func TestLoginPageShowsGitHubOAuthWhenEnabled(t *testing.T) {
 		&fakeSessionManager{},
 		renderer,
 		true,
+		false,
 	)
 
 	req := httptest.NewRequest(
@@ -591,11 +596,75 @@ func TestLoginPageHidesGitHubOAuthWhenDisabled(t *testing.T) {
 		t.Fatalf("NewRenderer() error: %v", err)
 	}
 
-	h := NewLoginHandler(nil, nil, renderer, false)
+	h := NewLoginHandler(nil, nil, renderer, false, false)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/login", nil))
 
 	if strings.Contains(rec.Body.String(), "/auth/github") {
 		t.Fatal("GitHub OAuth link was rendered while disabled")
+	}
+}
+
+func TestLoginPageShowsGoogleOAuthWhenEnabled(t *testing.T) {
+	dir := t.TempDir()
+
+	err := os.WriteFile(
+		filepath.Join(dir, "login.html"),
+		[]byte(`
+			{{if .GoogleOAuthEnabled}}
+				<a href="/auth/google">Continue with Google</a>
+			{{end}}
+		`),
+		0o644,
+	)
+	if err != nil {
+		t.Fatalf("WriteFile() error: %v", err)
+	}
+
+	renderer, err := view.NewRenderer(dir)
+	if err != nil {
+		t.Fatalf("NewRenderer() error: %v", err)
+	}
+
+	h := NewLoginHandler(nil, nil, renderer, false, true)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/login", nil))
+
+	if !strings.Contains(rec.Body.String(), "Continue with Google") {
+		t.Fatal("Google OAuth link was not rendered")
+	}
+
+	if !strings.Contains(rec.Body.String(), `href="/auth/google"`) {
+		t.Fatal("Google OAuth link does not target /auth/google")
+	}
+}
+
+func TestLoginPageHidesGoogleOAuthWhenDisabled(t *testing.T) {
+	dir := t.TempDir()
+
+	err := os.WriteFile(
+		filepath.Join(dir, "login.html"),
+		[]byte(`
+			{{if .GoogleOAuthEnabled}}
+				<a href="/auth/google">Continue with Google</a>
+			{{end}}
+		`),
+		0o644,
+	)
+	if err != nil {
+		t.Fatalf("WriteFile() error: %v", err)
+	}
+
+	renderer, err := view.NewRenderer(dir)
+	if err != nil {
+		t.Fatalf("NewRenderer() error: %v", err)
+	}
+
+	h := NewLoginHandler(nil, nil, renderer, false, false)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/login", nil))
+
+	if strings.Contains(rec.Body.String(), "/auth/google") {
+		t.Fatal("Google OAuth link was rendered while disabled")
 	}
 }

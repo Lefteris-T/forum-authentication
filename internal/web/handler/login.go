@@ -30,12 +30,14 @@ type LoginHandler struct {
 	sessions           SessionManager
 	renderer           *view.Renderer
 	gitHubOAuthEnabled bool
+	googleOAuthEnabled bool
 }
 
 type loginPageData struct {
 	Email              string
 	Error              string
 	GitHubOAuthEnabled bool
+	GoogleOAuthEnabled bool
 }
 
 // NewLoginHandler constructs login HTTP behavior.
@@ -44,12 +46,14 @@ func NewLoginHandler(
 	sessions SessionManager,
 	renderer *view.Renderer,
 	gitHubOAuthEnabled bool,
+	googleOAuthEnabled bool,
 ) *LoginHandler {
 	return &LoginHandler{
 		service:            service,
 		sessions:           sessions,
 		renderer:           renderer,
 		gitHubOAuthEnabled: gitHubOAuthEnabled,
+		googleOAuthEnabled: googleOAuthEnabled,
 	}
 }
 
@@ -83,6 +87,7 @@ func (h *LoginHandler) handleGet(w http.ResponseWriter) {
 		"login.html",
 		loginPageData{
 			GitHubOAuthEnabled: h.gitHubOAuthEnabled,
+			GoogleOAuthEnabled: h.googleOAuthEnabled,
 		},
 	); err != nil {
 		http.Error(
@@ -104,6 +109,7 @@ func (h *LoginHandler) handlePost(
 			loginPageData{
 				Error:              "Invalid form",
 				GitHubOAuthEnabled: h.gitHubOAuthEnabled,
+				GoogleOAuthEnabled: h.googleOAuthEnabled,
 			},
 		)
 		return
@@ -119,6 +125,7 @@ func (h *LoginHandler) handlePost(
 		data := loginPageData{
 			Email:              input.Email,
 			GitHubOAuthEnabled: h.gitHubOAuthEnabled,
+			GoogleOAuthEnabled: h.googleOAuthEnabled,
 		}
 
 		switch {

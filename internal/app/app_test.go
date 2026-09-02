@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -147,6 +148,21 @@ func TestBuildHandlerWiresGoogleOAuthRoutesWhenEnabled(t *testing.T) {
 			http.StatusBadRequest,
 		)
 	}
+
+	for _, page := range []string{"/login", "/register"} {
+		req := httptest.NewRequest(http.MethodGet, page, nil)
+		rec := httptest.NewRecorder()
+
+		handler.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s status = %d, want %d", page, rec.Code, http.StatusOK)
+		}
+
+		if !strings.Contains(rec.Body.String(), `href="/auth/google"`) {
+			t.Fatalf("%s does not show enabled Google OAuth link", page)
+		}
+	}
 }
 
 func TestBuildHandlerOmitsGoogleOAuthRoutesWhenDisabled(t *testing.T) {
@@ -178,6 +194,17 @@ func TestBuildHandlerOmitsGoogleOAuthRoutesWhenDisabled(t *testing.T) {
 				rec.Code,
 				http.StatusNotFound,
 			)
+		}
+	}
+
+	for _, page := range []string{"/login", "/register"} {
+		req := httptest.NewRequest(http.MethodGet, page, nil)
+		rec := httptest.NewRecorder()
+
+		handler.ServeHTTP(rec, req)
+
+		if strings.Contains(rec.Body.String(), "/auth/google") {
+			t.Fatalf("%s shows Google OAuth link while disabled", page)
 		}
 	}
 }

@@ -23,6 +23,7 @@ type RegisterHandler struct {
 	service            RegistrationService
 	renderer           *view.Renderer
 	gitHubOAuthEnabled bool
+	googleOAuthEnabled bool
 }
 
 type registerPageData struct {
@@ -30,6 +31,7 @@ type registerPageData struct {
 	Username           string
 	Error              string
 	GitHubOAuthEnabled bool
+	GoogleOAuthEnabled bool
 }
 
 // NewRegisterHandler constructs registration HTTP behavior.
@@ -37,11 +39,13 @@ func NewRegisterHandler(
 	service RegistrationService,
 	renderer *view.Renderer,
 	gitHubOAuthEnabled bool,
+	googleOAuthEnabled bool,
 ) *RegisterHandler {
 	return &RegisterHandler{
 		service:            service,
 		renderer:           renderer,
 		gitHubOAuthEnabled: gitHubOAuthEnabled,
+		googleOAuthEnabled: googleOAuthEnabled,
 	}
 }
 
@@ -75,6 +79,7 @@ func (h *RegisterHandler) handleGet(w http.ResponseWriter) {
 		"register.html",
 		registerPageData{
 			GitHubOAuthEnabled: h.gitHubOAuthEnabled,
+			GoogleOAuthEnabled: h.googleOAuthEnabled,
 		},
 	); err != nil {
 		http.Error(
@@ -96,6 +101,7 @@ func (h *RegisterHandler) handlePost(
 			registerPageData{
 				Error:              "Invalid form",
 				GitHubOAuthEnabled: h.gitHubOAuthEnabled,
+				GoogleOAuthEnabled: h.googleOAuthEnabled,
 			},
 		)
 		return
@@ -122,6 +128,7 @@ func (h *RegisterHandler) handlePost(
 		Email:              input.Email,
 		Username:           input.Username,
 		GitHubOAuthEnabled: h.gitHubOAuthEnabled,
+		GoogleOAuthEnabled: h.googleOAuthEnabled,
 	}
 
 	switch {

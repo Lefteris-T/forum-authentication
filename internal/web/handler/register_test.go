@@ -66,6 +66,7 @@ func TestRegisterGET(t *testing.T) {
 		nil,
 		renderer,
 		false,
+		false,
 	)
 
 	req := httptest.NewRequest(http.MethodGet, "/register", nil)
@@ -119,6 +120,7 @@ func TestRegisterPOSTSuccess(t *testing.T) {
 	h := NewRegisterHandler(
 		service,
 		renderer,
+		false,
 		false,
 	)
 
@@ -217,6 +219,7 @@ func TestRegisterPOSTInvalidInputReturnsBadRequest(t *testing.T) {
 	h := NewRegisterHandler(
 		service,
 		renderer,
+		false,
 		false,
 	)
 
@@ -319,6 +322,7 @@ func TestRegisterPOSTDuplicateReturnsConflict(t *testing.T) {
 				service,
 				renderer,
 				false,
+				false,
 			)
 
 			form := strings.NewReader(
@@ -389,6 +393,7 @@ func TestRegisterWrongMethodReturnsMethodNotAllowed(t *testing.T) {
 		service,
 		renderer,
 		false,
+		false,
 	)
 
 	req := httptest.NewRequest(
@@ -454,6 +459,7 @@ func TestRegisterHandlerDoesNotExposeInternalError(t *testing.T) {
 	h := NewRegisterHandler(
 		service,
 		renderer,
+		false,
 		false,
 	)
 
@@ -524,6 +530,7 @@ func TestRegisterPageShowsGitHubOAuthWhenEnabled(t *testing.T) {
 		&fakeRegistrationService{},
 		renderer,
 		true,
+		false,
 	)
 
 	req := httptest.NewRequest(
@@ -577,11 +584,75 @@ func TestRegisterPageHidesGitHubOAuthWhenDisabled(t *testing.T) {
 		t.Fatalf("NewRenderer() error: %v", err)
 	}
 
-	h := NewRegisterHandler(nil, renderer, false)
+	h := NewRegisterHandler(nil, renderer, false, false)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/register", nil))
 
 	if strings.Contains(rec.Body.String(), "/auth/github") {
 		t.Fatal("GitHub OAuth link was rendered while disabled")
+	}
+}
+
+func TestRegisterPageShowsGoogleOAuthWhenEnabled(t *testing.T) {
+	dir := t.TempDir()
+
+	err := os.WriteFile(
+		filepath.Join(dir, "register.html"),
+		[]byte(`
+			{{if .GoogleOAuthEnabled}}
+				<a href="/auth/google">Continue with Google</a>
+			{{end}}
+		`),
+		0o644,
+	)
+	if err != nil {
+		t.Fatalf("WriteFile() error: %v", err)
+	}
+
+	renderer, err := view.NewRenderer(dir)
+	if err != nil {
+		t.Fatalf("NewRenderer() error: %v", err)
+	}
+
+	h := NewRegisterHandler(nil, renderer, false, true)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/register", nil))
+
+	if !strings.Contains(rec.Body.String(), "Continue with Google") {
+		t.Fatal("Google OAuth link was not rendered")
+	}
+
+	if !strings.Contains(rec.Body.String(), `href="/auth/google"`) {
+		t.Fatal("Google OAuth link does not target /auth/google")
+	}
+}
+
+func TestRegisterPageHidesGoogleOAuthWhenDisabled(t *testing.T) {
+	dir := t.TempDir()
+
+	err := os.WriteFile(
+		filepath.Join(dir, "register.html"),
+		[]byte(`
+			{{if .GoogleOAuthEnabled}}
+				<a href="/auth/google">Continue with Google</a>
+			{{end}}
+		`),
+		0o644,
+	)
+	if err != nil {
+		t.Fatalf("WriteFile() error: %v", err)
+	}
+
+	renderer, err := view.NewRenderer(dir)
+	if err != nil {
+		t.Fatalf("NewRenderer() error: %v", err)
+	}
+
+	h := NewRegisterHandler(nil, renderer, false, false)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/register", nil))
+
+	if strings.Contains(rec.Body.String(), "/auth/google") {
+		t.Fatal("Google OAuth link was rendered while disabled")
 	}
 }

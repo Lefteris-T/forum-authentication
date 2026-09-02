@@ -93,13 +93,21 @@
 
         </form>
 
-        {{if .GitHubOAuthEnabled}}
+        {{if or .GitHubOAuthEnabled .GoogleOAuthEnabled}}
             <div class="oauth-login">
                 <p>or</p>
 
-                <a href="/auth/github">
-                    Continue with GitHub
-                </a>
+                {{if .GitHubOAuthEnabled}}
+                    <a href="/auth/github">
+                        Continue with GitHub
+                    </a>
+                {{end}}
+
+                {{if .GoogleOAuthEnabled}}
+                    <a href="/auth/google">
+                        Continue with Google
+                    </a>
+                {{end}}
             </div>
         {{end}}
 
