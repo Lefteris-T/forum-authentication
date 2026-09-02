@@ -9,6 +9,8 @@ The project uses a layered architecture and test-driven development, with emphas
 - User registration
 - Secure password hashing with bcrypt
 - Login and logout
+- GitHub OAuth login
+- Google OAuth / OpenID Connect login
 - UUID-based sessions
 - One active session per user
 - Public post listing and post detail pages
@@ -51,30 +53,21 @@ No JavaScript is required by the application.
 ## Architecture
 
 ```text
-Browser Request
-      |
-      v
-Middleware
-Recovery / Logging / Authentication
-      |
-      v
-HTTP Handler
-      |
-      v
-Validation
-      |
-      v
-Service
-Business Rules
-      |
-      v
-Repository
-      |
-      v
-SQLite
-      |
-      v
-Template / Redirect / HTTP Response
+Browser
+   |
+   v
+Recovery / Logging / Authentication middleware
+   |
+   v
+Router -> HTTP handler -> validation -> service -> repository -> SQLite
+   |                                                        |
+   +---------------- template / redirect response <---------+
+
+OAuth browser flow
+   |
+   v
+OAuth start/callback -> GitHub or Google -> OAuth login service
+   -> local user + OAuth account -> existing forum session
 ```
 
 Project structure:
@@ -89,6 +82,7 @@ forum/
 │   ├── config/
 │   ├── database/
 │   ├── model/
+│   ├── oauth/
 │   ├── repository/
 │   ├── service/
 │   ├── session/
@@ -101,6 +95,7 @@ forum/
 ├── templates/
 ├── static/
 ├── scripts/
+├── docs/
 ├── data/
 ├── Dockerfile
 ├── compose.yml
@@ -125,12 +120,15 @@ categories
 post_categories
 post_reactions
 comment_reactions
+oauth_accounts
 ```
 
 Important rules:
 
 - normalized email and username are unique
 - password values are stored only as bcrypt hashes
+- OAuth-only users have no password hash
+- provider identities are unique by provider and stable provider user ID
 - UUID session identifiers
 - one active session per user
 - foreign keys enabled
@@ -184,6 +182,10 @@ GET  /register
 POST /register
 GET  /login
 POST /login
+GET  /auth/github
+GET  /auth/github/callback
+GET  /auth/google
+GET  /auth/google/callback
 GET  /posts/{id}
 GET  /static/*
 ```
@@ -212,12 +214,14 @@ POST /comments/{id}/react
 404  resource or route not found
 405  method not allowed
 409  duplicate registration conflict
+502  OAuth provider failure
 500  unexpected internal error
 ```
 
 Successful state-changing form submissions use `303 See Other`.
 
-GET requests do not mutate SQLite.
+Ordinary GET requests do not mutate forum content. OAuth callback GET requests
+are protocol endpoints and may establish a session after validating the flow.
 
 ---
 
@@ -248,6 +252,12 @@ FORUM_DATABASE_PATH
 FORUM_SESSION_DURATION
 FORUM_COOKIE_NAME
 FORUM_SECURE_COOKIE
+GITHUB_CLIENT_ID
+GITHUB_CLIENT_SECRET
+GITHUB_REDIRECT_URL
+GOOGLE_CLIENT_ID
+GOOGLE_CLIENT_SECRET
+GOOGLE_REDIRECT_URL
 ```
 
 Defaults:
@@ -260,15 +270,44 @@ FORUM_COOKIE_NAME=forum_session
 FORUM_SECURE_COOKIE=false
 ```
 
+Each OAuth provider is enabled only when all three of its variables are set. A
+provider with all three values empty is disabled; partial configuration stops
+startup with an error. Disabled providers do not appear on the login and
+registration pages.
+
+Local callback URLs:
+
+```text
+http://localhost:8080/auth/github/callback
+http://localhost:8080/auth/google/callback
+```
+
+See [docs/setup-guide.md](docs/setup-guide.md) for provider-console setup,
+architecture, production guidance, and troubleshooting.
+
 ---
 
 ## Run Locally
 
-From the project root:
+Run without OAuth:
 
 ```bash
 go run ./cmd/forum
 ```
+
+Run with real GitHub and/or Google login:
+
+```bash
+cp .env.example .env
+# Edit .env and fill all three variables for each provider you enable.
+
+set -a
+source .env
+set +a
+go run ./cmd/forum
+```
+
+`.env` is intentionally ignored by Git. Do not commit it.
 
 Open:
 
@@ -286,6 +325,12 @@ Run the full suite:
 
 ```bash
 go test ./...
+```
+
+Run with the race detector:
+
+```bash
+go test -race ./...
 ```
 
 Format:
@@ -325,10 +370,14 @@ Run directly:
 ```bash
 docker run --rm \
   --name forum \
+  --env-file .env \
   -p 8080:8080 \
   -v forum-data:/app/data \
   forum
 ```
+
+Omit `--env-file .env` when running the container without OAuth or other
+environment overrides.
 
 The named volume:
 
@@ -342,10 +391,16 @@ stores the SQLite database outside the container so users, posts, comments, and 
 
 ## Docker Compose
 
-Start:
+Start without OAuth:
 
 ```bash
 docker compose up --build
+```
+
+Start with real OAuth credentials from `.env`:
+
+```bash
+docker compose --env-file .env up --build
 ```
 
 Stop:
@@ -423,11 +478,21 @@ Implemented security-related decisions include:
 - unique active session per user
 - foreign key enforcement
 - protected authenticated routes
+- OAuth state bound to the initiating browser with a short-lived cookie
+- PKCE S256 for GitHub and Google
+- stable provider identifiers and verified provider emails
+- transactional creation of local users and OAuth identities
+- provider access tokens discarded after identity lookup
 - centralized method enforcement
 - safe internal error responses
 - automatic HTML escaping through `html/template`
 - no JavaScript dependency
 - runtime databases and environment files excluded from Git
+
+OAuth client secrets belong only in environment variables or a deployment
+secret manager. Never place real credentials in `.env.example`, Compose,
+Dockerfiles, source code, documentation, logs, or commits. Rotate a credential
+immediately if it is exposed.
 
 For HTTPS deployments:
 
@@ -512,6 +577,7 @@ docker build -t forum .
 Also verify manually that:
 
 - registration and login work
+- real GitHub and Google login work with exact configured callback URLs
 - session replacement behaves correctly
 - guests cannot access protected actions
 - posts and comments persist
@@ -543,9 +609,3 @@ The goal is not only to build a working forum, but to practice the structure and
 - application configuration
 
 It provides a solid foundation for further work in backend engineering, DevOps, and application security.
-
-
-set -a
-source .env
-set +a
-go run ./cmd/forum
