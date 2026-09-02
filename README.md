@@ -543,3 +543,9 @@ The goal is not only to build a working forum, but to practice the structure and
 - application configuration
 
 It provides a solid foundation for further work in backend engineering, DevOps, and application security.
+
+
+set -a
+source .env
+set +a
+go run ./cmd/forum
