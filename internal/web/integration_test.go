@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"forum/internal/database"
+	"forum/internal/oauth"
 	"forum/internal/repository"
 	"forum/internal/service"
 	sessionpkg "forum/internal/session"
@@ -48,11 +49,24 @@ func TestIntegrationRegistrationFlow(t *testing.T) {
 }
 
 type integrationEnv struct {
-	Server *httptest.Server
-	DB     *sql.DB
+	Server          *httptest.Server
+	DB              *sql.DB
+	OAuthStateStore *oauth.OAuthStateStore
+}
+
+type integrationOAuthProviders struct {
+	GitHub oauth.Provider
+	Google oauth.Provider
 }
 
 func newIntegrationEnv(t *testing.T) *integrationEnv {
+	return newIntegrationEnvWithOAuth(t, integrationOAuthProviders{})
+}
+
+func newIntegrationEnvWithOAuth(
+	t *testing.T,
+	providers integrationOAuthProviders,
+) *integrationEnv {
 	t.Helper()
 
 	// -------------------------------------------------
@@ -106,6 +120,7 @@ func newIntegrationEnv(t *testing.T) *integrationEnv {
 	comments := repository.NewCommentRepository(db)
 
 	reactions := repository.NewReactionRepository(db)
+	oauthAccounts := repository.NewOAuthAccountRepository(db)
 
 	// -------------------------------------------------
 	// Services
@@ -174,16 +189,16 @@ func newIntegrationEnv(t *testing.T) *integrationEnv {
 	registerHandler := handler.NewRegisterHandler(
 		authService,
 		renderer,
-		false,
-		false,
+		providers.GitHub != nil,
+		providers.Google != nil,
 	)
 
 	loginHandler := handler.NewLoginHandler(
 		loginService,
 		sessionManager,
 		renderer,
-		false,
-		false,
+		providers.GitHub != nil,
+		providers.Google != nil,
 	)
 
 	logoutHandler := handler.NewLogoutHandler(
@@ -220,21 +235,73 @@ func newIntegrationEnv(t *testing.T) *integrationEnv {
 		comments,
 	)
 
+	oauthStateStore := oauth.NewOAuthStateStore()
+	oauthLoginService := service.NewOAuthLoginService(oauthAccounts, users)
+	oauthSuccessHandler := handler.NewOAuthSuccessHandler(
+		oauthLoginService,
+		sessionManager,
+		loginService,
+	)
+
+	var githubOAuthHandler http.Handler
+	var githubOAuthCallbackHandler http.Handler
+	if providers.GitHub != nil {
+		githubOAuthHandler = oauth.NewAuthorizationHandler(
+			providers.GitHub,
+			"github",
+			oauthStateStore,
+			"github_oauth_state",
+			false,
+		)
+		githubOAuthCallbackHandler = oauth.NewCallbackHandler(
+			providers.GitHub,
+			"github",
+			oauthStateStore,
+			"github_oauth_state",
+			false,
+			oauthSuccessHandler.Handle,
+		)
+	}
+
+	var googleOAuthHandler http.Handler
+	var googleOAuthCallbackHandler http.Handler
+	if providers.Google != nil {
+		googleOAuthHandler = oauth.NewAuthorizationHandler(
+			providers.Google,
+			"google",
+			oauthStateStore,
+			"google_oauth_state",
+			false,
+		)
+		googleOAuthCallbackHandler = oauth.NewCallbackHandler(
+			providers.Google,
+			"google",
+			oauthStateStore,
+			"google_oauth_state",
+			false,
+			oauthSuccessHandler.Handle,
+		)
+	}
+
 	// -------------------------------------------------
 	// Router
 	// -------------------------------------------------
 
 	router := NewForumRouter(
 		Handlers{
-			Home:            homeHandler,
-			Register:        registerHandler,
-			Login:           loginHandler,
-			Logout:          logoutHandler,
-			PostCreation:    postCreationHandler,
-			PostDetail:      postDetailHandler,
-			CommentCreate:   commentHandler,
-			PostReaction:    postReactionHandler,
-			CommentReaction: commentReactionHandler,
+			Home:                homeHandler,
+			Register:            registerHandler,
+			Login:               loginHandler,
+			Logout:              logoutHandler,
+			PostCreation:        postCreationHandler,
+			PostDetail:          postDetailHandler,
+			CommentCreate:       commentHandler,
+			PostReaction:        postReactionHandler,
+			CommentReaction:     commentReactionHandler,
+			GitHubOAuth:         githubOAuthHandler,
+			GitHubOAuthCallback: githubOAuthCallbackHandler,
+			GoogleOAuth:         googleOAuthHandler,
+			GoogleOAuthCallback: googleOAuthCallbackHandler,
 
 			Static: http.FileServer(
 				http.Dir(
@@ -280,8 +347,9 @@ func newIntegrationEnv(t *testing.T) *integrationEnv {
 	// -------------------------------------------------
 
 	return &integrationEnv{
-		Server: httptest.NewServer(appHandler),
-		DB:     db,
+		Server:          httptest.NewServer(appHandler),
+		DB:              db,
+		OAuthStateStore: oauthStateStore,
 	}
 }
 func newIntegrationServer(t *testing.T) *httptest.Server {
