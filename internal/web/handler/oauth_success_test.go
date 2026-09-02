@@ -4,10 +4,12 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"forum/internal/model"
 	"forum/internal/oauth"
+	"forum/internal/service"
 )
 
 type fakeOAuthLoginService struct {
@@ -197,5 +199,43 @@ func TestOAuthSuccessClearsCookieWhenDatabaseSessionFails(
 			rec.Code,
 			http.StatusInternalServerError,
 		)
+	}
+}
+
+func TestOAuthSuccessRejectsEmailCollisionWithoutSession(t *testing.T) {
+	oauthLogin := &fakeOAuthLoginService{
+		err: service.ErrOAuthEmailConflict,
+	}
+	sessionManager := &fakeOAuthSessionManager{
+		sessionID: "session-123",
+	}
+	sessionService := &fakeOAuthSessionService{}
+	handler := NewOAuthSuccessHandler(
+		oauthLogin,
+		sessionManager,
+		sessionService,
+	)
+	rec := httptest.NewRecorder()
+
+	handler.Handle(
+		rec,
+		httptest.NewRequest(http.MethodGet, "/auth/google/callback", nil),
+		oauth.User{
+			Provider:       "google",
+			ProviderUserID: "google-subject",
+			VerifiedEmail:  "existing@example.com",
+		},
+	)
+
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusConflict)
+	}
+
+	if sessionManager.created || sessionService.called {
+		t.Fatal("forum session was created for an email collision")
+	}
+
+	if strings.Contains(rec.Body.String(), "existing@example.com") {
+		t.Fatal("colliding email was exposed in the response")
 	}
 }

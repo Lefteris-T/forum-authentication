@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
@@ -231,19 +232,22 @@ func TestCallbackHandlerRejectsInvalidProviderFlow(t *testing.T) {
 
 func TestCallbackHandlerReturnsBadGatewayForProviderFailure(t *testing.T) {
 	tests := []struct {
-		name     string
-		provider *recordingCallbackProvider
+		name           string
+		provider       *recordingCallbackProvider
+		internalDetail string
 	}{
 		{
-			name: "token exchange",
+			name:           "token exchange",
+			internalDetail: "secret exchange detail",
 			provider: &recordingCallbackProvider{
-				exchangeErr: errors.New("exchange failed"),
+				exchangeErr: errors.New("secret exchange detail"),
 			},
 		},
 		{
-			name: "profile retrieval",
+			name:           "profile retrieval",
+			internalDetail: "secret profile detail",
 			provider: &recordingCallbackProvider{
-				fetchErr: errors.New("fetch failed"),
+				fetchErr: errors.New("secret profile detail"),
 			},
 		},
 	}
@@ -288,6 +292,10 @@ func TestCallbackHandlerReturnsBadGatewayForProviderFailure(t *testing.T) {
 					rec.Code,
 					http.StatusBadGateway,
 				)
+			}
+
+			if strings.Contains(rec.Body.String(), tt.internalDetail) {
+				t.Fatal("provider error detail was exposed to the user")
 			}
 
 			assertStateCookieCleared(t, rec, "google_oauth_state")

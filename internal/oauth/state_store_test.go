@@ -79,6 +79,31 @@ func TestOAuthStateStoreRejectsExpiredState(t *testing.T) {
 	}
 }
 
+func TestOAuthStateStorePrunesAbandonedExpiredFlows(t *testing.T) {
+	store := NewOAuthStateStore()
+
+	store.Save(
+		"abandoned-state",
+		"github",
+		"expired-verifier",
+		time.Now().Add(-time.Minute),
+	)
+	store.Save(
+		"active-state",
+		"google",
+		"active-verifier",
+		time.Now().Add(10*time.Minute),
+	)
+
+	if len(store.flows) != 1 {
+		t.Fatalf("stored flow count = %d, want 1", len(store.flows))
+	}
+
+	if _, err := store.Consume("active-state", "google"); err != nil {
+		t.Fatalf("active flow was removed during pruning: %v", err)
+	}
+}
+
 func TestOAuthStateStoreSeparatesProviders(t *testing.T) {
 	store := NewOAuthStateStore()
 
@@ -92,5 +117,17 @@ func TestOAuthStateStoreSeparatesProviders(t *testing.T) {
 	_, err := store.Consume("state-value", "google")
 	if err == nil {
 		t.Fatal("Consume() error = nil, want provider mismatch error")
+	}
+
+	flow, err := store.Consume("state-value", "github")
+	if err != nil {
+		t.Fatalf(
+			"matching provider could not consume state after mismatch: %v",
+			err,
+		)
+	}
+
+	if flow.Provider != "github" {
+		t.Fatalf("flow.Provider = %q, want %q", flow.Provider, "github")
 	}
 }

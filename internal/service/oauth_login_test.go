@@ -9,14 +9,18 @@ import (
 )
 
 type fakeOAuthAccountRepository struct {
-	account model.OAuthAccount
-	err     error
+	account        model.OAuthAccount
+	err            error
+	provider       string
+	providerUserID string
 }
 
 func (f *fakeOAuthAccountRepository) FindByProviderUserID(
 	provider string,
 	providerUserID string,
 ) (model.OAuthAccount, error) {
+	f.provider = provider
+	f.providerUserID = providerUserID
 	return f.account, f.err
 }
 
@@ -122,6 +126,22 @@ func TestOAuthLoginReturnsExistingLocalUser(t *testing.T) {
 			"oauth@example.com",
 		)
 	}
+
+	if oauthAccounts.provider != "github" {
+		t.Fatalf(
+			"lookup provider = %q, want %q",
+			oauthAccounts.provider,
+			"github",
+		)
+	}
+
+	if oauthAccounts.providerUserID != "123456" {
+		t.Fatalf(
+			"lookup provider user ID = %q, want %q",
+			oauthAccounts.providerUserID,
+			"123456",
+		)
+	}
 }
 func TestOAuthLoginCreatesFirstTimeUser(t *testing.T) {
 	oauthAccounts := &fakeOAuthAccountRepositoryWithCreate{
@@ -171,5 +191,61 @@ func TestOAuthLoginCreatesFirstTimeUser(t *testing.T) {
 
 	if got.ID != 42 {
 		t.Fatalf("user ID = %d, want 42", got.ID)
+	}
+}
+
+func TestOAuthLoginRequiresVerifiedEmailForFirstTimeUser(t *testing.T) {
+	oauthAccounts := &fakeOAuthAccountRepositoryWithCreate{
+		findErr: repository.ErrOAuthAccountNotFound,
+	}
+	users := &fakeOAuthUserRepository{
+		byEmailErr: repository.ErrUserNotFound,
+	}
+	oauthLogin := NewOAuthLoginService(oauthAccounts, users)
+
+	_, err := oauthLogin.Login(oauth.User{
+		Provider:          "google",
+		ProviderUserID:    "google-subject",
+		SuggestedUsername: "Google User",
+	})
+
+	if !errors.Is(err, ErrOAuthVerifiedEmailRequired) {
+		t.Fatalf(
+			"Login() error = %v, want %v",
+			err,
+			ErrOAuthVerifiedEmailRequired,
+		)
+	}
+
+	if oauthAccounts.createdProviderUserID != "" {
+		t.Fatal("OAuth user was created without a verified email")
+	}
+}
+
+func TestOAuthLoginRejectsExistingEmailWithoutLinking(t *testing.T) {
+	oauthAccounts := &fakeOAuthAccountRepositoryWithCreate{
+		findErr: repository.ErrOAuthAccountNotFound,
+	}
+	users := &fakeOAuthUserRepository{
+		user: model.User{
+			ID:    7,
+			Email: "existing@example.com",
+		},
+	}
+	oauthLogin := NewOAuthLoginService(oauthAccounts, users)
+
+	_, err := oauthLogin.Login(oauth.User{
+		Provider:          "google",
+		ProviderUserID:    "google-subject",
+		VerifiedEmail:     "existing@example.com",
+		SuggestedUsername: "Google User",
+	})
+
+	if !errors.Is(err, ErrOAuthEmailConflict) {
+		t.Fatalf("Login() error = %v, want %v", err, ErrOAuthEmailConflict)
+	}
+
+	if oauthAccounts.createdProviderUserID != "" {
+		t.Fatal("existing email was automatically linked to Google")
 	}
 }

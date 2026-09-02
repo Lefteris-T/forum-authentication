@@ -76,5 +76,14 @@ func decodeProviderJSON(
 		return err
 	}
 
+	var trailing any
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		if err == nil {
+			return fmt.Errorf("provider response contains multiple JSON values")
+		}
+
+		return fmt.Errorf("provider response has trailing data: %w", err)
+	}
+
 	return nil
 }

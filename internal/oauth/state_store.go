@@ -37,9 +37,16 @@ func (s *OAuthStateStore) Save(
 	expires time.Time,
 ) {
 	key := sha256.Sum256([]byte(state))
+	now := time.Now()
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	for storedKey, flow := range s.flows {
+		if !flow.Expires.After(now) {
+			delete(s.flows, storedKey)
+		}
+	}
 
 	s.flows[key] = OAuthFlow{
 		Provider: provider,
@@ -62,16 +69,18 @@ func (s *OAuthStateStore) Consume(
 		return OAuthFlow{}, ErrOAuthStateNotFound
 	}
 
-	// consume first so even failures cannot replay this state
-	delete(s.flows, key)
-
 	if time.Now().After(flow.Expires) {
+		delete(s.flows, key)
 		return OAuthFlow{}, ErrOAuthStateExpired
 	}
 
 	if flow.Provider != provider {
 		return OAuthFlow{}, ErrOAuthStateProviderMismatch
 	}
+
+	// Consume only a valid, provider-matched flow. A callback from one provider
+	// must not invalidate another provider's authorization attempt.
+	delete(s.flows, key)
 
 	return flow, nil
 }
