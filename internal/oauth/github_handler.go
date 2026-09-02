@@ -1,17 +1,36 @@
 package oauth
 
 import (
-	"fmt"
 	"net/http"
-	"net/url"
 	"time"
 )
 
-type GitHubAuthorizationHandler struct {
-	cfg        ProviderConfig
-	store      *OAuthStateStore
-	cookieName string
-	secure     bool
+type authorizationURLProvider interface {
+	AuthorizationURL(state, challenge string) (string, error)
+}
+
+type AuthorizationHandler struct {
+	provider     authorizationURLProvider
+	providerName string
+	store        *OAuthStateStore
+	cookieName   string
+	secure       bool
+}
+
+func NewAuthorizationHandler(
+	provider authorizationURLProvider,
+	providerName string,
+	store *OAuthStateStore,
+	cookieName string,
+	secure bool,
+) http.Handler {
+	return &AuthorizationHandler{
+		provider:     provider,
+		providerName: providerName,
+		store:        store,
+		cookieName:   cookieName,
+		secure:       secure,
+	}
 }
 
 func NewGitHubAuthorizationHandler(
@@ -20,15 +39,16 @@ func NewGitHubAuthorizationHandler(
 	cookieName string,
 	secure bool,
 ) http.Handler {
-	return &GitHubAuthorizationHandler{
-		cfg:        cfg,
-		store:      store,
-		cookieName: cookieName,
-		secure:     secure,
-	}
+	return NewAuthorizationHandler(
+		NewGitHubProvider(cfg),
+		"github",
+		store,
+		cookieName,
+		secure,
+	)
 }
 
-func (h *GitHubAuthorizationHandler) ServeHTTP(
+func (h *AuthorizationHandler) ServeHTTP(
 	w http.ResponseWriter,
 	r *http.Request,
 ) {
@@ -52,7 +72,7 @@ func (h *GitHubAuthorizationHandler) ServeHTTP(
 
 	h.store.Save(
 		state,
-		"github",
+		h.providerName,
 		verifier,
 		time.Now().Add(10*time.Minute),
 	)
@@ -64,7 +84,7 @@ func (h *GitHubAuthorizationHandler) ServeHTTP(
 		h.secure,
 	)
 
-	redirectURL, err := h.authorizationURL(state, challenge)
+	redirectURL, err := h.provider.AuthorizationURL(state, challenge)
 	if err != nil {
 		ClearStateCookie(
 			w,
@@ -86,30 +106,4 @@ func (h *GitHubAuthorizationHandler) ServeHTTP(
 		redirectURL,
 		http.StatusFound,
 	)
-}
-
-func (h *GitHubAuthorizationHandler) authorizationURL(
-	state string,
-	challenge string,
-) (string, error) {
-	u, err := url.Parse(h.cfg.AuthorizationEndpoint)
-	if err != nil {
-		return "", fmt.Errorf(
-			"parse github authorization endpoint: %w",
-			err,
-		)
-	}
-
-	query := u.Query()
-
-	query.Set("client_id", h.cfg.ClientID)
-	query.Set("redirect_uri", h.cfg.RedirectURL)
-	query.Set("scope", "user:email")
-	query.Set("state", state)
-	query.Set("code_challenge", challenge)
-	query.Set("code_challenge_method", "S256")
-
-	u.RawQuery = query.Encode()
-
-	return u.String(), nil
 }
