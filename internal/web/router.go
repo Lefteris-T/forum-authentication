@@ -29,6 +29,8 @@ type Handlers struct {
 	Static              http.Handler
 	GitHubOAuth         http.Handler
 	GitHubOAuthCallback http.Handler
+	GoogleOAuth         http.Handler
+	GoogleOAuthCallback http.Handler
 }
 
 // NewRouter centralizes method enforcement and Allow-header responses.
@@ -171,6 +173,20 @@ func NewForumRouter(h Handlers) http.Handler {
 			Methods: []string{http.MethodGet},
 			Pattern: "/auth/github/callback",
 			Handler: h.GitHubOAuthCallback,
+		})
+	}
+	if h.GoogleOAuth != nil {
+		routes = append(routes, Route{
+			Methods: []string{http.MethodGet},
+			Pattern: "/auth/google",
+			Handler: h.GoogleOAuth,
+		})
+	}
+	if h.GoogleOAuthCallback != nil {
+		routes = append(routes, Route{
+			Methods: []string{http.MethodGet},
+			Pattern: "/auth/google/callback",
+			Handler: h.GoogleOAuthCallback,
 		})
 	}
 

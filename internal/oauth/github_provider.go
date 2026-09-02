@@ -1,18 +1,13 @@
 package oauth
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
 )
-
-const maxProviderResponseSize = 1 << 20 // 1 MB
 
 type GitHubProvider struct {
 	cfg           ProviderConfig
@@ -172,64 +167,15 @@ func (p *GitHubProvider) getJSON(
 	accessToken string,
 	dst any,
 ) error {
-	req, err := http.NewRequestWithContext(
+	if err := getProviderJSON(
 		ctx,
-		http.MethodGet,
+		p.cfg.Client,
 		endpoint,
-		nil,
-	)
-	if err != nil {
-		return fmt.Errorf("create github api request: %w", err)
-	}
-
-	req.Header.Set(
-		"Authorization",
-		"Bearer "+accessToken,
-	)
-	req.Header.Set("Accept", "application/vnd.github+json")
-
-	res, err := p.cfg.Client.Do(req)
-	if err != nil {
+		accessToken,
+		"application/vnd.github+json",
+		dst,
+	); err != nil {
 		return fmt.Errorf("github api request: %w", err)
-	}
-	defer res.Body.Close()
-
-	if res.StatusCode < 200 || res.StatusCode >= 300 {
-		return fmt.Errorf(
-			"github api returned status %d",
-			res.StatusCode,
-		)
-	}
-
-	if err := decodeProviderJSON(res.Body, dst); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func decodeProviderJSON(
-	r io.Reader,
-	dst any,
-) error {
-	limited := io.LimitReader(
-		r,
-		maxProviderResponseSize+1,
-	)
-
-	data, err := io.ReadAll(limited)
-	if err != nil {
-		return err
-	}
-
-	if len(data) > maxProviderResponseSize {
-		return fmt.Errorf("provider response too large")
-	}
-
-	decoder := json.NewDecoder(bytes.NewReader(data))
-
-	if err := decoder.Decode(dst); err != nil {
-		return err
 	}
 
 	return nil

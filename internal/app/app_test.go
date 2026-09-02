@@ -5,6 +5,8 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"testing"
 	"time"
 
@@ -81,5 +83,101 @@ func TestOtherServerErrorsAreReturned(t *testing.T) {
 
 	if !errors.Is(err, expected) {
 		t.Fatalf("normalizeServerError() = %v, want %v", err, expected)
+	}
+}
+
+func TestBuildHandlerWiresGoogleOAuthRoutesWhenEnabled(t *testing.T) {
+	cfg := config.Config{
+		DatabasePath:    t.TempDir() + "/forum.db",
+		SessionDuration: time.Hour,
+		CookieName:      "forum_session",
+		Google: config.OAuthProviderConfig{
+			ClientID:     "google-client-id",
+			ClientSecret: "google-client-secret",
+			RedirectURL:  "http://localhost:8080/auth/google/callback",
+			Enabled:      true,
+		},
+	}
+
+	handler, cleanup, err := buildHandler(cfg)
+	if err != nil {
+		t.Fatalf("buildHandler() error: %v", err)
+	}
+	defer cleanup()
+
+	startReq := httptest.NewRequest(http.MethodGet, "/auth/google", nil)
+	startRec := httptest.NewRecorder()
+
+	handler.ServeHTTP(startRec, startReq)
+
+	if startRec.Code != http.StatusFound {
+		t.Fatalf(
+			"start status = %d, want %d",
+			startRec.Code,
+			http.StatusFound,
+		)
+	}
+
+	location, err := url.Parse(startRec.Header().Get("Location"))
+	if err != nil {
+		t.Fatalf("parse authorization redirect: %v", err)
+	}
+
+	if location.Host != "accounts.google.com" {
+		t.Fatalf(
+			"authorization host = %q, want %q",
+			location.Host,
+			"accounts.google.com",
+		)
+	}
+
+	callbackReq := httptest.NewRequest(
+		http.MethodGet,
+		"/auth/google/callback?error=access_denied",
+		nil,
+	)
+	callbackRec := httptest.NewRecorder()
+
+	handler.ServeHTTP(callbackRec, callbackReq)
+
+	if callbackRec.Code != http.StatusBadRequest {
+		t.Fatalf(
+			"callback status = %d, want %d",
+			callbackRec.Code,
+			http.StatusBadRequest,
+		)
+	}
+}
+
+func TestBuildHandlerOmitsGoogleOAuthRoutesWhenDisabled(t *testing.T) {
+	cfg := config.Config{
+		DatabasePath:    t.TempDir() + "/forum.db",
+		SessionDuration: time.Hour,
+		CookieName:      "forum_session",
+	}
+
+	handler, cleanup, err := buildHandler(cfg)
+	if err != nil {
+		t.Fatalf("buildHandler() error: %v", err)
+	}
+	defer cleanup()
+
+	for _, path := range []string{
+		"/auth/google",
+		"/auth/google/callback",
+	} {
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		rec := httptest.NewRecorder()
+
+		handler.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusNotFound {
+			t.Fatalf(
+				"%s status = %d, want %d",
+				path,
+				rec.Code,
+				http.StatusNotFound,
+			)
+		}
 	}
 }

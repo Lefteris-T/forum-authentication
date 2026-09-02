@@ -221,6 +221,8 @@ func buildHandler(
 
 	var githubOAuthHandler http.Handler
 	var githubOAuthCallbackHandler http.Handler
+	var googleOAuthHandler http.Handler
+	var googleOAuthCallbackHandler http.Handler
 
 	if cfg.GitHub.Enabled {
 		githubProviderConfig := oauth.ProviderConfig{
@@ -252,6 +254,39 @@ func buildHandler(
 			oauthSuccessHandler.Handle,
 		)
 	}
+
+	if cfg.Google.Enabled {
+		googleProviderConfig := oauth.ProviderConfig{
+			ClientID:              cfg.Google.ClientID,
+			ClientSecret:          cfg.Google.ClientSecret,
+			RedirectURL:           cfg.Google.RedirectURL,
+			AuthorizationEndpoint: "https://accounts.google.com/o/oauth2/v2/auth",
+			TokenEndpoint:         "https://oauth2.googleapis.com/token",
+			UserEndpoint:          "https://openidconnect.googleapis.com/v1/userinfo",
+			Client:                oauth.DefaultHTTPClient(),
+		}
+
+		googleProvider := oauth.NewGoogleProvider(
+			googleProviderConfig,
+		)
+
+		googleOAuthHandler = oauth.NewAuthorizationHandler(
+			googleProvider,
+			"google",
+			oauthStateStore,
+			"google_oauth_state",
+			cfg.SecureCookie,
+		)
+
+		googleOAuthCallbackHandler = oauth.NewCallbackHandler(
+			googleProvider,
+			"google",
+			oauthStateStore,
+			"google_oauth_state",
+			cfg.SecureCookie,
+			oauthSuccessHandler.Handle,
+		)
+	}
 	// Routing describes HTTP shape only; business and persistence rules stay in
 	// their respective service and repository layers.
 	router := web.NewForumRouter(
@@ -267,6 +302,8 @@ func buildHandler(
 			CommentReaction:     commentReactionHandler,
 			GitHubOAuth:         githubOAuthHandler,
 			GitHubOAuthCallback: githubOAuthCallbackHandler,
+			GoogleOAuth:         googleOAuthHandler,
+			GoogleOAuthCallback: googleOAuthCallbackHandler,
 			Static: http.FileServer(
 				http.Dir(resolveProjectPath("static")),
 			),

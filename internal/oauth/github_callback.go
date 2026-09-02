@@ -11,12 +11,31 @@ type OAuthSuccessHandler func(
 	user User,
 )
 
-type GitHubCallbackHandler struct {
-	provider   Provider
-	store      *OAuthStateStore
-	cookieName string
-	secure     bool
-	onSuccess  OAuthSuccessHandler
+type CallbackHandler struct {
+	provider     Provider
+	providerName string
+	store        *OAuthStateStore
+	cookieName   string
+	secure       bool
+	onSuccess    OAuthSuccessHandler
+}
+
+func NewCallbackHandler(
+	provider Provider,
+	providerName string,
+	store *OAuthStateStore,
+	cookieName string,
+	secure bool,
+	onSuccess OAuthSuccessHandler,
+) http.Handler {
+	return &CallbackHandler{
+		provider:     provider,
+		providerName: providerName,
+		store:        store,
+		cookieName:   cookieName,
+		secure:       secure,
+		onSuccess:    onSuccess,
+	}
 }
 
 func NewGitHubCallbackHandler(
@@ -26,16 +45,17 @@ func NewGitHubCallbackHandler(
 	secure bool,
 	onSuccess OAuthSuccessHandler,
 ) http.Handler {
-	return &GitHubCallbackHandler{
-		provider:   provider,
-		store:      store,
-		cookieName: cookieName,
-		secure:     secure,
-		onSuccess:  onSuccess,
-	}
+	return NewCallbackHandler(
+		provider,
+		"github",
+		store,
+		cookieName,
+		secure,
+		onSuccess,
+	)
 }
 
-func (h *GitHubCallbackHandler) ServeHTTP(
+func (h *CallbackHandler) ServeHTTP(
 	w http.ResponseWriter,
 	r *http.Request,
 ) {
@@ -49,7 +69,7 @@ func (h *GitHubCallbackHandler) ServeHTTP(
 		return
 	}
 
-	defer ClearStateCookie(
+	ClearStateCookie(
 		w,
 		h.cookieName,
 		h.secure,
@@ -95,7 +115,7 @@ func (h *GitHubCallbackHandler) ServeHTTP(
 
 	flow, err := h.store.Consume(
 		state,
-		"github",
+		h.providerName,
 	)
 	if err != nil {
 		http.Error(
